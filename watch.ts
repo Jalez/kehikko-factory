@@ -1,13 +1,15 @@
 import { existsSync, watch, type FSWatcher } from 'node:fs'
 
 import { isRunning } from './job/flow.ts'
+import { runIsRunning } from './rev/flow.ts'
+import { listRuns } from './rev/store.ts'
 import { factoryDir, listJobs } from './store.ts'
 import { transcriptOf } from './transcript.ts'
 
 /**
  * What tells the board to read again: a change anywhere in the project's `.kehikot/factory/` (a job
- * moved, an agent wrote its file, the queue changed), or in the transcript of a conversation running
- * a job (a live line on its card). Watched by the server with `fs.watch`, and said to the page on its
+ * or a review moved, an agent wrote its file, the queue changed), or in the transcript of a
+ * conversation running a job or a review (a live line on its card). Watched by the server with `fs.watch`, and said to the page on its
  * stream as "something changed" — never what changed, so a stream carries nothing a page could not
  * read through its ticketed `/api` anyway.
  *
@@ -30,6 +32,11 @@ export function watchProject(root: string, changed: () => void): () => void {
     for (const job of listJobs(root)) {
       if (!isRunning(job) || !job.session) continue
       const path = transcriptOf(job.session)
+      if (path) wanted.add(path)
+    }
+    for (const run of listRuns(root)) {
+      if (!runIsRunning(run) || !run.session) continue
+      const path = transcriptOf(run.session)
       if (path) wanted.add(path)
     }
     for (const [path, watcher] of transcripts) {

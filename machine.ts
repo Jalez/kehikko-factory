@@ -17,8 +17,8 @@ import { join } from 'node:path'
 
 export function machineDir(env: Record<string, string | undefined> = process.env): string {
   const home = env.HOME || homedir()
-  if (process.platform === 'darwin') return join(home, 'Library', 'Application Support', 'Kehikot') // kehikot-storage: allow Kehikot's machine folder (keys, Factory's cross-project author rules)
-  return join(env.XDG_DATA_HOME || join(home, '.local', 'share'), 'kehikot') // kehikot-storage: allow Kehikot's machine folder off macOS
+  if (process.platform === 'darwin') return join(home, 'Library', 'Application Support', 'Kehikot')
+  return join(env.XDG_DATA_HOME || join(home, '.local', 'share'), 'kehikot')
 }
 
 export const keysDir = (env: Record<string, string | undefined> = process.env): string => env.KEHIKOT_KEYS_DIR || join(machineDir(env), 'keys')
