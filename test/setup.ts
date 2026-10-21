@@ -6,12 +6,15 @@ import { join } from 'node:path'
 /*
  * Tests never reach the real machine: no host is asked about a project (the tests answer through
  * `setNeeds`/`setHostResolve`, and anything that slips past asks a port nothing listens on), no
- * registration lands in the real registry, no transcript is read from the real ~/.claude, and the
+ * registration lands in the real registry, no transcript is read from the real ~/.claude, no key or
+ * author rule is read or written in the real machine folder, and the
  * git the tests run commits as a stand-in person with no global config.
  */
 process.env.KEHIKOT_ORIGINS = 'http://127.0.0.1:9'
 process.env.KEHIKOT_MODULES_DIR = mkdtempSync(join(tmpdir(), 'factory-registry-'))
 process.env.CLAUDE_CONFIG_DIR = mkdtempSync(join(tmpdir(), 'factory-claude-'))
+process.env.KEHIKOT_KEYS_DIR = mkdtempSync(join(tmpdir(), 'factory-keys-'))
+process.env.KEHIKOT_FACTORY_DIR = mkdtempSync(join(tmpdir(), 'factory-machine-'))
 process.env.GIT_CONFIG_GLOBAL = '/dev/null'
 process.env.GIT_CONFIG_NOSYSTEM = '1'
 process.env.GIT_AUTHOR_NAME = 'Test Person'
