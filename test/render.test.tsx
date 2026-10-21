@@ -5,8 +5,10 @@ import type { ActivityItem, EpicPart } from 'kehikot-module-protocol'
 import { Screen, type Host } from '../src/app.tsx'
 import { newJob } from '../job/flow.ts'
 import type { Job } from '../job/shape.ts'
-import { DEFAULT_REVIEW_SETTINGS } from '../rev/shape.ts'
-import type { Act, Api, BoardJob, ReviewAct, ReviewBoard } from '../src/wire/api.ts'
+import { newRun } from '../rev/flow.ts'
+import { DEFAULT_REVIEW_SETTINGS, type Run } from '../rev/shape.ts'
+import { CHANGE } from './fixtures.ts'
+import type { Act, Api, BoardJob, BoardRun, ReviewAct, ReviewBoard } from '../src/wire/api.ts'
 
 afterEach(cleanup)
 
@@ -67,7 +69,8 @@ describe('the board', () => {
   test('narrows to the picked parts, and says so in one sentence when nothing is left', async () => {
     render(<Screen host={host({ parts: [part('loud', false), part('quiet', true)] })} api={fakeApi([job('a-0001')])} />)
     await waitFor(() => screen.getByTestId('empty'))
-    expect(screen.getByTestId('empty').textContent).toBe('No job is in the picked part.')
+    expect(screen.getByTestId('empty').textContent).toContain('No job on greetings is in the picked part: quiet.')
+    expect(screen.getByTestId('summary').textContent).toBe('Jobs on greetings · quiet')
   })
 
   test('a card opens the job and its files; approve needs two presses, then asks the server', async () => {
@@ -82,5 +85,68 @@ describe('the board', () => {
     expect(approvals()).toEqual([])
     await react(async () => fireEvent.click(screen.getByTestId('approve')))
     expect(approvals()).toEqual([{ act: 'approve', job: 'b-0002' }])
+  })
+})
+
+describe('the boards follow the picked parts', () => {
+  const wholeEpic = job('w-0001', { place: { epic: 'greetings' } })
+  const loud = job('l-0002', { place: { epic: 'greetings', parts: ['loud'] } })
+  const quiet = job('q-0003', { place: { epic: 'greetings', parts: ['quiet'] } })
+  const both = job('b-0004', { place: { epic: 'greetings', parts: ['loud', 'quiet'] } })
+  const elsewhere = job('e-0005', { place: { epic: 'other', parts: ['loud'] } })
+  const jobs = [wholeEpic, loud, quiet, both, elsewhere]
+  const shown = () => ['w-0001', 'l-0002', 'q-0003', 'b-0004', 'e-0005'].filter((id) => screen.queryByTestId(`card-${id}`))
+
+  test('picked parts narrow, and a whole-epic job always shows', async () => {
+    render(<Screen host={host({ parts: [part('loud', true), part('quiet', false)] })} api={fakeApi(jobs)} />)
+    await waitFor(() => screen.getByTestId('board'))
+    expect(shown()).toEqual(['w-0001', 'l-0002', 'b-0004'])
+    expect(screen.getByTestId('summary').textContent).toBe('Jobs on greetings · loud')
+  })
+
+  test('no parts picked shows every job of the epic, and says all parts', async () => {
+    render(<Screen host={host({ parts: [part('loud', false), part('quiet', false)] })} api={fakeApi(jobs)} />)
+    await waitFor(() => screen.getByTestId('board'))
+    expect(shown()).toEqual(['w-0001', 'l-0002', 'q-0003', 'b-0004'])
+    expect(screen.getByTestId('summary').textContent).toBe('Jobs on greetings · all parts')
+  })
+
+  test('the all view ignores the parts and the epic', async () => {
+    const press = { current: (_: { item: string; value?: string }) => undefined as unknown }
+    render(<Screen host={host({ parts: [part('loud', true)] })} api={fakeApi(jobs)} press={press as never} />)
+    await waitFor(() => screen.getByTestId('board'))
+    await react(async () => void press.current({ item: 'view', value: 'all' }))
+    expect(shown()).toEqual(['w-0001', 'l-0002', 'q-0003', 'b-0004', 'e-0005'])
+    expect(screen.getByTestId('summary').textContent).toBe('All jobs')
+  })
+
+  test('the Reviews board follows the same rules', async () => {
+    const mk = (id: string, place: Run['place']) => ({ ...newRun({ id, change: CHANGE, session: null, place, now: '2026-10-21T12:00:00.000Z' }), files: [], lately: null }) as BoardRun
+    const runs = [mk('app-1-0001', { epic: 'greetings' }), mk('app-2-0002', { epic: 'greetings', parts: ['loud'] }), mk('app-3-0003', { epic: 'greetings', parts: ['quiet'] }), mk('app-4-0004', { epic: 'other' }), mk('app-5-0005', null)]
+    const reviews: ReviewBoard = { root: '/work/app', runs, questions: [], settings: DEFAULT_REVIEW_SETTINGS }
+    const press = { current: (_: { item: string; value?: string }) => undefined as unknown }
+    const seen = () => runs.map((one) => one.id).filter((id) => screen.queryByTestId(`review-card-${id}`))
+    render(<Screen host={host({ parts: [part('loud', true), part('quiet', false)] })} api={{ ...fakeApi([]), reviews: async () => reviews }} press={press as never} />)
+    await react(async () => void press.current({ item: 'view', value: 'reviews' }))
+    await waitFor(() => screen.getByTestId('review-board'))
+    expect(seen()).toEqual(['app-1-0001', 'app-2-0002'])
+    expect(screen.getByTestId('summary').textContent).toBe('Reviews on greetings · loud')
+    cleanup()
+    render(<Screen host={host({ parts: [] })} api={{ ...fakeApi([]), reviews: async () => reviews }} press={press as never} />)
+    await react(async () => void press.current({ item: 'view', value: 'reviews' }))
+    await waitFor(() => screen.getByTestId('review-board'))
+    expect(seen()).toEqual(['app-1-0001', 'app-2-0002', 'app-3-0003'])
+  })
+
+  test("two projects' jobs do not mix: each board is read for its own project path only", async () => {
+    const byProject: Record<string, BoardJob[]> = { '/work/app': [job('a-0001')], '/work/other': [job('o-0001')] }
+    const asked: string[] = []
+    const api = { ...fakeApi([]), board: async (path: string) => (asked.push(path), { root: path, jobs: byProject[path] ?? [], settings: { judgeMerges: false, board: null, review: DEFAULT_REVIEW_SETTINGS }, queue: [] }) } as Api
+    const { rerender } = render(<Screen host={host({ projectPath: '/work/app' })} api={api} />)
+    await waitFor(() => screen.getByTestId('card-a-0001'))
+    rerender(<Screen host={host({ projectPath: '/work/other' })} api={api} />)
+    await waitFor(() => screen.getByTestId('card-o-0001'))
+    expect(screen.queryByTestId('card-a-0001')).toBeNull()
+    expect(asked).toEqual(['/work/app', '/work/other'])
   })
 })

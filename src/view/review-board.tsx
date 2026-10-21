@@ -7,12 +7,12 @@ import type { BoardRun, ReviewQuestion } from '@/wire/api'
  * card says the change, the step in a few words, the checklist's progress, whether it is one-way
  * and whether it touches what people see — in words, never by colour alone.
  */
-export function ReviewBoardView({ runs, questions, selected, onOpen }: { runs: readonly BoardRun[]; questions: readonly ReviewQuestion[]; selected: string | null; onOpen(id: string): void }) {
+export function ReviewBoardView({ runs, questions, selected, onOpen, empty }: { runs: readonly BoardRun[]; questions: readonly ReviewQuestion[]; selected: string | null; onOpen(id: string): void; empty?: string }) {
   const live = runs.filter((run) => !run.archived)
   if (!live.length && !questions.length) {
     return (
       <p className="p-3 text-xs text-[var(--muted-foreground)]" data-testid="reviews-empty">
-        No reviews yet. In a Claude Code conversation on this kehikko, select a pull or merge request and type /review-factory.
+        {empty ?? 'No reviews yet. In a Claude Code conversation on this kehikko, select a pull or merge request and type /review-factory.'}
       </p>
     )
   }
