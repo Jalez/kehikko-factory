@@ -2,6 +2,10 @@ import { answered, ask, follow, ticket } from 'kehikot-module-protocol/client'
 
 import type { BoardMap } from '../../job/board.ts'
 import type { Job, QueueItem, Settings } from '../../job/shape.ts'
+import type { ReviewAct } from '../../review-factory.ts'
+import type { ReviewSettings, Run } from '../../rev/shape.ts'
+
+export type { ReviewAct }
 
 /**
  * This module's own `/api`, as the page calls it. Every call carries the ticket printed into this
@@ -28,6 +32,27 @@ export type Act =
   | { act: 'parts'; epic: string; parts: { id: string; heading: string }[] }
   | { act: 'board'; board: BoardMap | null }
 
+export type BoardRun = Run & { files: string[]; lately: { at: number; line: string } | null }
+
+export interface ReviewQuestion {
+  author: string
+  ref: string
+  url: string
+  run: string
+  askedAt: string
+  /** "We haven't reviewed <author>'s work before. What's the signal …?" */
+  text: string
+  /** The project's default rule: the one-press answer. */
+  recommended: string
+}
+
+export interface ReviewBoard {
+  root: string
+  runs: BoardRun[]
+  questions: ReviewQuestion[]
+  settings: ReviewSettings
+}
+
 export interface FoundBoard {
   board: string
   boardUrl?: string
@@ -46,6 +71,10 @@ export interface Api {
   watch(projectPath: string, changed: () => void): () => void
   /** The project's remote, and with `cli` the boards the person's gh/glab finds. */
   columns(projectPath: string, cli: boolean): Promise<Columns>
+  /** The Reviews board: every run, the questions waiting, the project's review settings. */
+  reviews(projectPath: string): Promise<ReviewBoard>
+  reviewFile(projectPath: string, run: string, name: string): Promise<string | null>
+  reviewAct(projectPath: string, act: ReviewAct): Promise<string>
 }
 
 export const api: Api = {
@@ -62,6 +91,16 @@ export const api: Api = {
   async columns(projectPath, cli) {
     const body = answered(await ask<Columns>('./api/columns', { query: { projectPath, ...(cli ? { look: 'cli' } : {}) }, ticket: true }))
     return { remote: body.remote, ...(body.found ? { found: body.found } : {}) }
+  },
+  async reviews(projectPath) {
+    const body = answered(await ask<ReviewBoard & { ok: true }>('./api/review-board', { query: { projectPath }, ticket: true }))
+    return { root: body.root, runs: body.runs, questions: body.questions, settings: body.settings }
+  },
+  async reviewFile(projectPath, run, name) {
+    return answered(await ask<{ text: string | null }>('./api/review-file', { query: { projectPath, run, name }, ticket: true })).text
+  },
+  async reviewAct(projectPath, act) {
+    return answered(await ask<{ said: string }>('./api/review-act', { body: { projectPath, ...act } })).said
   },
   watch(projectPath, changed) {
     return follow('./api/watch', () => changed(), { query: { projectPath, ticket: ticket() }, events: ['changed'], probe: true })

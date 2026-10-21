@@ -8,9 +8,10 @@ import { originFor, preferred } from 'kehikot-module-protocol/serve'
 import { PREFERRED_PORT } from './manifest.ts'
 
 /**
- * The Claude Code skill this module offers (protocol 2.5.0, `declares.skills`): `/factory`.
+ * The Claude Code skills this module offers (protocol 2.5.0, `declares.skills`): `/factory` and
+ * `/review-factory`.
  *
- * Kept as ONE file, `plugin/skills/factory/SKILL.md`, which is a template: where it says
+ * Each is ONE file, `plugin/skills/<name>/SKILL.md`, which is a template: where it says
  * `{{origin}}` this module writes the origin it is really serving on (`serveFrom`, from the port
  * Vite ended up bound to), and where it says `{{version}}` the skill's version. The person installs
  * it from Kehikot's Skills window (and Settings keeps it in step); this module installs nothing.
@@ -33,6 +34,11 @@ const OFFERED = [
     name: 'factory',
     summary:
       'Type /factory <feature> to run a software factory: spec, chosen review angles, a build in its own worktree, counter-arguments and a judge.',
+  },
+  {
+    name: 'review-factory',
+    summary:
+      'Type /review-factory on a pull or merge request: two chosen angles, two reviewers, an adversary and a judge, the checklist to the letter, and a draft in Review you send yourself.',
   },
 ] as const
 

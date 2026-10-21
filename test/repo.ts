@@ -36,3 +36,23 @@ export function testNeeds(roots: string[], over: Partial<Needs> = {}): Needs {
     ...over,
   }
 }
+
+/** A forge stand-in: an origin repository with `refs/pull/7/head`, and a clone of it as the project. */
+export function scratchForge(): { origin: string; root: string; head: string; done(): void } {
+  const parent = realpathSync(mkdtempSync(join(tmpdir(), 'factory-forge-')))
+  const origin = join(parent, 'origin')
+  git(parent, ['init', '-q', '-b', 'main', origin])
+  writeFileSync(join(origin, 'greet.js'), 'export const greet = (name) => `Hello, ${name}`\n')
+  git(origin, ['add', '.'])
+  git(origin, ['commit', '-q', '-m', 'start'])
+  git(origin, ['checkout', '-q', '-b', 'shout'])
+  writeFileSync(join(origin, 'greet.js'), 'export const greet = (name) => `HELLO, ${name}`\n')
+  git(origin, ['commit', '-qam', 'shout'])
+  const head = git(origin, ['rev-parse', 'HEAD']).out
+  git(origin, ['update-ref', 'refs/pull/7/head', head])
+  git(origin, ['checkout', '-q', 'main'])
+  const root = join(parent, 'app')
+  git(parent, ['clone', '-q', origin, root])
+  return { origin, root, head, done: () => rmSync(parent, { recursive: true, force: true }) }
+}
+

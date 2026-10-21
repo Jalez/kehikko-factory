@@ -99,7 +99,7 @@ describe('a job moves through its stages', () => {
   })
 
   test('with the switch on, the judge merges an approved job; hand-over still goes to the person', () => {
-    const on = { judgeMerges: true, board: null }
+    const on = { ...DEFAULT_SETTINGS, judgeMerges: true }
     const ready = go(built(), { kind: 'review', verdicts: { security: 'approve', tests: 'approve' } })
     const merging = advance(ready, judged(0, 'merge'), on, NOW)
     expect(merging.ok && merging.merge).toBe('judge')

@@ -5,7 +5,8 @@ import type { ActivityItem, EpicPart } from 'kehikot-module-protocol'
 import { Screen, type Host } from '../src/app.tsx'
 import { newJob } from '../job/flow.ts'
 import type { Job } from '../job/shape.ts'
-import type { Act, Api, BoardJob } from '../src/wire/api.ts'
+import { DEFAULT_REVIEW_SETTINGS } from '../rev/shape.ts'
+import type { Act, Api, BoardJob, ReviewAct, ReviewBoard } from '../src/wire/api.ts'
 
 afterEach(cleanup)
 
@@ -16,9 +17,15 @@ const job = (id: string, over: Partial<Job> = {}): BoardJob => ({
   lately: null,
 })
 
-function fakeApi(jobs: BoardJob[], acts: Act[] = []): Api {
+function fakeApi(jobs: BoardJob[], acts: Act[] = [], reviews: ReviewBoard = { root: '/work/app', runs: [], questions: [], settings: DEFAULT_REVIEW_SETTINGS }, reviewActs: ReviewAct[] = []): Api {
   return {
-    board: async () => ({ root: '/work/app', jobs, settings: { judgeMerges: false, board: null }, queue: [] }),
+    reviews: async () => reviews,
+    reviewFile: async () => '# Draft\nOne comment.',
+    reviewAct: async (_p, one) => {
+      reviewActs.push(one)
+      return 'saved'
+    },
+    board: async () => ({ root: '/work/app', jobs, settings: { judgeMerges: false, board: null, review: DEFAULT_REVIEW_SETTINGS }, queue: [] }),
     file: async () => '# Spec\nShout.',
     act: async (_p, one) => {
       acts.push(one)

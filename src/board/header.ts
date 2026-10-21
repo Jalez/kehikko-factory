@@ -5,7 +5,8 @@ import type { Job } from '../../job/shape.ts'
 /**
  * What Factory puts in its container's header, as a pure function of the page's state:
  *
- *  - **View**: this epic's jobs, or all of the project's. An agent may switch it.
+ *  - **View**: this epic's jobs, all of the project's, or the Reviews board (`/review-factory`). An
+ *    agent may switch it.
  *  - **Run**: "Approve and merge…" and "Send back with a note…", for the SELECTED job and only while
  *    it waits for the person. Neither is ever pressed by an agent: approving runs a merge, and the
  *    approve run asks to be confirmed (`confirm`), which the protocol refuses to mark for agents.
@@ -14,7 +15,7 @@ import type { Job } from '../../job/shape.ts'
  * Words are short so the host's menus fit at every width (it folds them to icons, then to one ⋯).
  */
 
-export type View = 'epic' | 'all'
+export type View = 'epic' | 'all' | 'reviews'
 
 const reason = (text: string) => (text.length > LIMITS.REASON ? `${text.slice(0, LIMITS.REASON - 1)}…` : text)
 
@@ -36,6 +37,7 @@ export function headerItems(view: View, selected: Job | null, busy: boolean, epi
       options: [
         { id: 'epic', label: epic ? 'This epic' : 'This epic (none open)' },
         { id: 'all', label: 'All jobs' },
+        { id: 'reviews', label: 'Reviews' },
       ],
       value: view,
       agents: true,

@@ -38,6 +38,18 @@ export const PREFERRED_PORT = 8040
  * board's lists), choosing from what the host read (`tracker.columns`, hence `trackers:read`). As a
  * job's stage changes, the conversation running `/factory` moves its issue with the person's CLI.
  *
+ * ## `/review-factory`
+ *
+ * The second skill. A person types it on a pull or merge request; the conversation conducts a panel
+ * (a planner choosing two angles, two reviewers, one adversary over every point, a judge, a diagram
+ * drawer only when asked) while this module gathers, validates every point mechanically, and drafts
+ * the result into Review (its MCP door) and the checklist answers into Checklist. It shows each run
+ * on a Reviews board (a View switch). It posts nothing itself, except a two-way change with no UI/UX
+ * when the person turned "Post two-way reviews by myself" on, through Review's Factory-only send.
+ *
+ * `view:navigate`: "Open the change in Review" on a review waiting for the person asks the host to
+ * show the change's ref (`view.goto`), so Review, beside it, opens the draft.
+ *
  * ## `reacts: ['parts']`
  *
  * A job started from a conversation placed on parts of an epic belongs to those parts, and the
@@ -50,25 +62,28 @@ export const DECLARED: Manifest = manifestSchema.parse({
   name: 'Factory',
   version: VERSION,
   dataVersion: 1,
-  summary: 'A software factory on your kehikko: spec, chosen review angles, a build in its own worktree, counter-arguments and a judge.',
+  summary: 'A software factory on your kehikko: builds judged by a panel of agents, and /review-factory for accurate, transparent reviews of pull and merge requests.',
   tags: ['agents', 'review', 'code'],
   guidance:
     'Factory runs features through a pipeline of agents (spec, plan, build, review, counter-argument, judge) when the person '
     + 'types /factory in a Claude Code conversation. Its MCP door only reads: `jobs` lists a project\'s jobs and their stages, '
     + '`job` reads one job\'s files (spec, plan, reviews, counter-arguments, judgements, decision). You cannot start, approve, '
-    + 'merge or send back a job: those are the person\'s, typed or pressed. Never merge a factory/<job> branch yourself.',
+    + 'merge or send back a job: those are the person\'s, typed or pressed. Never merge a factory/<job> branch yourself. '
+    + 'It also runs /review-factory, a review panel for pull and merge requests (planner, two reviewers, an adversary, a judge) that drafts '
+    + 'into Review: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
+    + 'steer or send a review.',
   entry: '/app',
   modes: [{ id: 'board', label: 'Factory', scope: 'epic' }],
   mcp: {
     url: '/mcp',
     transport: 'http',
-    about: 'The jobs of the software factory in a project, and each job\'s files. Read-only.',
+    about: 'The jobs of the software factory in a project, and each job\'s files; the /review-factory reviews and their records. Read-only.',
   },
   extensions: { emits: [], consumes: [] },
   reacts: ['parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
-    uses: ['activity:report', 'trackers:read'],
+    uses: ['activity:report', 'trackers:read', 'view:navigate'],
     storage: true,
     prompt: false,
   },
