@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { MAX_ANGLES, angleSchema, pointSchema } from '../review/angles.ts'
+import { DEFAULT_REVIEW_SETTINGS, reviewSettingsSchema } from '../rev/shape.ts'
 import { boardSchema } from './board.ts'
 
 export { ANGLE_ID, KNOWN_ANGLES, MAX_ANGLES, MAX_ANGLE_ID, MAX_BRIEF, MIN_ANGLES, angleSchema, pointSchema, type Angle, type Point } from '../review/angles.ts'
@@ -107,9 +108,11 @@ export const settingsSchema = z.object({
   judgeMerges: z.boolean().default(false),
   /** Where each stage sits on the project's own board; null until the person maps it. */
   board: boardSchema.nullable().default(null),
+  /** `/review-factory`'s switches and rules for this project (rev/shape.ts). Off until the person turns them on. */
+  review: reviewSettingsSchema.default({}),
 })
 export type Settings = z.infer<typeof settingsSchema>
-export const DEFAULT_SETTINGS: Settings = { judgeMerges: false, board: null }
+export const DEFAULT_SETTINGS: Settings = { judgeMerges: false, board: null, review: DEFAULT_REVIEW_SETTINGS }
 
 /** One line of the queue the person keeps in the board. */
 export const queueItemSchema = z.object({

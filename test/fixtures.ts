@@ -25,3 +25,6 @@ export const DIFF = [
   '+y',
   '',
 ].join('\n')
+
+/** The change most review tests are about. */
+export const CHANGE = { forge: 'github' as const, repo: 'me/app', number: 7, url: 'https://github.com/me/app/pull/7', ref: 'gh#7', title: 'Shout', author: { login: 'alice' }, labels: [] }

@@ -77,7 +77,7 @@ function escapes(root: string, child: string): string | null {
 }
 
 /** Every existing level from `.kehikot` down to `path` resolves inside the project. */
-function confined(root: string, path: string): string | null {
+export function confined(root: string, path: string): string | null {
   const top = kehikotDir(root)!
   if (!within(top, path)) return `${path} is not under ${top}.`
   let at = path
@@ -96,14 +96,14 @@ function confined(root: string, path: string): string | null {
 }
 
 /** Make the folders down to `dir`, inside the project, checked before and after. */
-function makeDir(root: string, dir: string): string | null {
+export function makeDir(root: string, dir: string): string | null {
   const before = confined(root, dir)
   if (before) return before
   mkdirSync(dir, { recursive: true })
   return confined(root, dir)
 }
 
-function writeAtomic(root: string, path: string, text: string): Result<null> {
+export function writeAtomic(root: string, path: string, text: string): Result<null> {
   const made = makeDir(root, dirname(path))
   if (made) return { ok: false, error: made }
   const temporary = `${path}.${process.pid}.tmp`
@@ -112,7 +112,7 @@ function writeAtomic(root: string, path: string, text: string): Result<null> {
   return { ok: true, value: null }
 }
 
-function readText(root: string, path: string): Result<string | null> {
+export function readText(root: string, path: string): Result<string | null> {
   if (!existsSync(path)) return { ok: true, value: null }
   const escaped = confined(root, path)
   if (escaped) return { ok: false, error: escaped }
@@ -207,7 +207,7 @@ export function writeDecision(root: string, id: string, text: string): Result<nu
 
 /* ---- Settings, queue, parts ------------------------------------------ */
 
-function readJson(root: string, name: string): Result<unknown> {
+export function readJson(root: string, name: string): Result<unknown> {
   const text = readText(root, moduleFile(root, ID, name)!)
   if (!text.ok) return text
   if (text.value === null) return { ok: true, value: null }
@@ -218,7 +218,7 @@ function readJson(root: string, name: string): Result<unknown> {
   }
 }
 
-function writeJson(root: string, name: string, value: unknown): Result<null> {
+export function writeJson(root: string, name: string, value: unknown): Result<null> {
   return writeAtomic(root, moduleFile(root, ID, name)!, `${JSON.stringify(value, null, 2)}\n`)
 }
 
