@@ -24,7 +24,7 @@ export interface Checked {
   path: string
   /** The whole change's diff, merge base to head, in the line frame Review anchors comments in. */
   diff: string
-  /** Since the previous review's head, when that commit is still here. */
+  /** Since the previous review's head, when that commit is still here: empty when nothing changed since. */
   delta: string | null
 }
 
@@ -55,7 +55,8 @@ export function checkout(root: string, id: string, target: Target, base: string,
   const diff = git(root, [...DIFF, mergeBase, headSha.out])
   if (!diff.ok) return { ok: false, why: `git diff failed: ${line(diff.err)}` }
   let delta: string | null = null
-  if (previousHead && previousHead !== headSha.out && git(root, ['cat-file', '-e', `${previousHead}^{commit}`]).ok) {
+  if (previousHead === headSha.out) delta = ''
+  else if (previousHead && git(root, ['cat-file', '-e', `${previousHead}^{commit}`]).ok) {
     const since = git(root, [...DIFF, previousHead, headSha.out])
     if (since.ok) delta = `${since.out}\n`
   }

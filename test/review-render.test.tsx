@@ -74,7 +74,7 @@ const drafted = run('app-7-a1b2', {
   checklists,
   answers,
   plan: { angles: [{ id: 'correctness', brief: 'b', by: 'planner', practices: [], items: [] }, { id: 'tests', brief: 'b', by: 'planner', practices: [], items: [] }], door: { kind: 'one-way', reasons: ['A migration.'], rule: null }, uiux: { touches: true, reason: 'Shown.', screens: ['home'], shots: false } },
-  judged: { rulings: [], verdict: 'request-changes', visionFit: 'It fits.', summary: 's', pathToSuccess: ['1. Add pictures of the home screen.'], close: null, diagrams: [], notes: [] },
+  judged: { rulings: [], verdict: 'request-changes', visionFit: 'It fits.', summary: 's', pathToSuccess: ['Add pictures of the home screen.'], close: null, diagrams: [], notes: [] },
 })
 
 describe('the Reviews board', () => {
@@ -110,7 +110,7 @@ describe('the Reviews board', () => {
     await waitFor(() => screen.getByTestId('review-card-app-7-a1b2'))
     fireEvent.click(screen.getByTestId('review-card-app-7-a1b2'))
     await waitFor(() => expect(screen.getByTestId('review-file-text').textContent).toBe('the text of draft.md'))
-    expect(screen.getByTestId('review-verdict').textContent).toContain('To get this approved:')
+    expect(screen.getByTestId('review-verdict').textContent).toContain('To get this approved:1. Add pictures of the home screen.')
     expect(screen.getByTestId('review-checklist').textContent).toContain('failed — Docs updated (correctness reviewer: README untouched.)')
     expect(screen.getByTestId('review-door').textContent).toContain('before and after pictures are missing')
     fireEvent.click(screen.getByTestId('open-in-review'))

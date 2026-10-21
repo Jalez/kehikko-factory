@@ -97,8 +97,10 @@ export function ReviewView({
               <>
                 <p className="pt-1 font-medium">To get this approved:</p>
                 <ol className="pl-1">
-                  {judged.pathToSuccess.map((one) => (
-                    <li key={one}>{one}</li>
+                  {judged.pathToSuccess.map((one, i) => (
+                    <li key={one}>
+                      {i + 1}. {one}
+                    </li>
                   ))}
                 </ol>
               </>

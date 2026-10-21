@@ -41,7 +41,7 @@ describe('the panel\'s rules', () => {
       adversaryCloses: false,
     })
     expect(out.verdict).toBe('request-changes')
-    expect(out.pathToSuccess).toEqual(['1. Add pictures of the home screen. — No before and after pictures.', '2. Fix 1. (a.ts:1): Claim 1.'])
+    expect(out.pathToSuccess).toEqual(['Add pictures of the home screen. — No before and after pictures.', 'Fix 1. (a.ts:1): Claim 1.'])
     expect(out.notes[0]).toContain('a required point means changes')
   })
 

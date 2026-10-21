@@ -8,7 +8,7 @@ import { stopped } from './job/steps.ts'
 import { readFactoryKey } from './machine.ts'
 import { angleFor } from './review/angles.ts'
 import { parseUnified, totals, type DiffFile } from './review/diff.ts'
-import { rulePanel } from './review/panel.ts'
+import { numbered, rulePanel } from './review/panel.ts'
 import { parseChallenge, parseJudge, parsePlanner, parseReviewer } from './review/points.ts'
 import { mergeNearDuplicates, validateAnswers, validatePoints, type CheckedPoint } from './review/validate.ts'
 import { answered as questionAnswered, ask, questionText, readQuestions, ruleFor, setRule } from './rev/authors.ts'
@@ -272,7 +272,7 @@ export async function gather(root: string, run0: Run, meta: Meta, needs: ReviewN
   const checked = checkout(root, run.id, target, meta.base, remote, previousHead)
   if (!checked.ok) return stopRun(root, run, checked.why, needs)
   writeRecord(root, run.id, 'diff.patch', checked.value.diff)
-  if (checked.value.delta) writeRecord(root, run.id, 'delta.patch', checked.value.delta)
+  if (checked.value.delta !== null) writeRecord(root, run.id, 'delta.patch', checked.value.delta)
   const files = parseUnified(checked.value.diff)
   const sum = totals(files)
   const budget = run.budget ?? sizeBudget(sum.files, sum.added + sum.removed)
@@ -287,7 +287,8 @@ export async function gather(root: string, run0: Run, meta: Meta, needs: ReviewN
     if (held.trouble) notes.push(`Checklist could not be read: ${held.trouble.slice(0, 200)}`)
     checklists = held.lists
   } else notes.push('Checklist is not running here, so no checklist was read for this change.')
-  if (run.round > 1 && !checked.value.delta) notes.push('The head of the last review is not here any more (a force-push?), so this re-review reads the whole change; new points are still held to new code where it can tell.')
+  if (run.round > 1 && checked.value.delta === '') notes.push('No new commits since the last review: this re-review checks only whether the listed points are met, and raises nothing new.')
+  else if (run.round > 1 && checked.value.delta === null) notes.push('The head of the last review is not here any more (a force-push?), so this re-review reads the whole change and cannot tell new code from old.')
 
   const settings = settingsOf(root)
   const packet = packetText(run, meta, vision ? visionText(vision) : visionText(null), checklists, budget, settings, sum, checked.value.head)
@@ -298,7 +299,7 @@ export async function gather(root: string, run0: Run, meta: Meta, needs: ReviewN
     run,
     {
       kind: 'gathered',
-      pinned: { head: checked.value.head, base: checked.value.base, mergeBase: checked.value.mergeBase, previousHead: checked.value.delta ? previousHead : null, at: needs.now() },
+      pinned: { head: checked.value.head, base: checked.value.base, mergeBase: checked.value.mergeBase, previousHead: checked.value.delta !== null ? previousHead : null, at: needs.now() },
       checkout: { path: checked.value.path, present: true },
       budget,
       change: run.change,
@@ -409,8 +410,8 @@ function ended(root: string, run: Run): string {
     return stopped([
       `${run.id} — ${run.change.ref} "${run.change.title}": ${judged?.verdict ?? 'drafted'}${run.plan ? `, ${run.plan.door.kind}${run.plan.uiux.touches ? ', touches what people see' : ''}` : ''}.`,
       run.waiting.said,
-      ...(judged?.pathToSuccess.length && judged.verdict !== 'approve' ? ['To get this approved:', ...judged.pathToSuccess] : judged?.verdict === 'approve' ? ['Nothing blocks this change.'] : []),
-      ...(run.plan?.door.kind === 'one-way' ? [`One-way: read the decision briefing (${run.drafted?.briefing === 'paper' ? 'proposed in the epic\'s paper, and' : ''} in the record) before you send.`] : []),
+      ...(judged?.pathToSuccess.length && judged.verdict !== 'approve' ? ['To get this approved:', ...numbered(judged.pathToSuccess)] : judged?.verdict === 'approve' ? ['Nothing blocks this change.'] : []),
+      ...(run.plan?.door.kind === 'one-way' ? [`One-way: read the decision briefing (${run.drafted?.briefing === 'paper' ? 'proposed in the epic\'s paper, and in the record' : 'in the record'}) before you send.`] : []),
       ...run.notes.slice(-4),
     ])
   }
@@ -530,7 +531,7 @@ export async function doneReview(report: ReviewReport, needs: ReviewNeeds): Prom
         reviewersClose: run.closeVotes.reviewers,
         adversaryCloses: run.closeVotes.adversary,
       })
-      if (result.verdict === 'close' && !result.pathToSuccess.length && judgement.close) result.pathToSuccess = [`1. ${judgement.close.instead}`]
+      if (result.verdict === 'close' && !result.pathToSuccess.length && judgement.close) result.pathToSuccess = [judgement.close.instead]
       const flows = modulesOn(root, run.place?.kehikko).includes(FLOWS) && (await needs.neighbours.present(FLOWS))
       const drawable = flows && !!run.vision?.epic && !overBudget(run)
       const notes: string[] = []
@@ -603,7 +604,7 @@ function reviewed(root: string, run: Run, outputs: Map<string, { ok: true; value
   const diff = readRecord(root, run.id, 'diff.patch')
   const files: DiffFile[] = diff.ok && diff.value ? parseUnified(diff.value) : []
   const deltaText = run.round > 1 ? readRecord(root, run.id, 'delta.patch') : null
-  const delta = deltaText?.ok && deltaText.value ? parseUnified(deltaText.value) : null
+  const delta = deltaText?.ok && deltaText.value !== null ? parseUnified(deltaText.value) : null
   const kept: CheckedPoint[] = []
   const rejected: Run['rejected'] = []
   const answers: Run['answers'] = []
@@ -770,7 +771,7 @@ function draftText(run: Run, drafted: { comments: number; refused: { point: stri
     sent ? 'Posted by Factory, as the project\'s switch allows for a two-way change.' : 'Nothing was posted: you read it in Review and send it yourself.',
     '',
     ...(judged ? ['## Rulings', '', ...judged.rulings.map((one) => `- ${one.point}: ${one.ruling} — ${one.reason}`), ''] : []),
-    ...(judged?.pathToSuccess.length ? ['## To get this approved', '', ...judged.pathToSuccess, ''] : []),
+    ...(judged?.pathToSuccess.length ? ['## To get this approved', '', ...numbered(judged.pathToSuccess), ''] : []),
     ...(drafted.refused.length ? ['## Refused by Review', '', ...drafted.refused.map((one) => `- ${one.point}: ${one.why}`), ''] : []),
     ...(notes.length ? ['## Notes', '', ...notes.map((one) => `- ${one}`), ''] : []),
     ...(run.rejected.length ? ['## What the review did not get to, or refused', '', ...run.rejected.map((one) => `- (${one.angle}) ${one.point} — ${one.why}`), ''] : []),

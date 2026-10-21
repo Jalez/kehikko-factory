@@ -294,7 +294,7 @@ describe('posting without the person', () => {
     expect(oneWay.run.drafted?.briefing).toBe('record')
     const ui = await finished({ postTwoWay: true, plan: { uiux: { touches: true, reason: 'The greeting is shown.', screens: ['home'] } } })
     expect(ui.sent).toEqual([])
-    expect(ui.run.judged?.pathToSuccess[0]).toContain('Add before and after pictures of: home.')
+    expect(ui.run.judged?.pathToSuccess[0]).toMatch(/^Add before and after pictures of: home\./)
     const keyless = await finished({ postTwoWay: true, key: null })
     expect(keyless.sent).toEqual([])
     expect(keyless.run.notes.join(' ')).toContain('has not made its key')
@@ -356,6 +356,27 @@ describe('again: re-runs and re-reviews', () => {
     expect(spawned).toEqual([['claude', ['--bg', '--name=Re-review 2: gh#7 Shout', '/review-factory resume app-7-c3d4'], root]])
     await pageRows(root, [row], needs)
     expect(spawned.length).toBe(1)
+  })
+
+  test('a re-review with no new commits checks only the listed points, and says so', async () => {
+    const { root, needs } = setUp()
+    let suffix = 0
+    needs.suffix = () => ['a1b2', 'c3d4'][suffix++]!
+    await say(needs, root)
+    await runToRest(needs, root)
+    writeRun(root, { ...runOf(root), stage: 'sent', sent: { at: 'x', by: 'person' }, waiting: null })
+    await say(needs, root)
+    const run = runOf(root, 'app-7-c3d4')
+    expect(run.round).toBe(2)
+    expect(run.notes.join(' ')).toContain('No new commits since the last review')
+    expect(run.notes.join(' ')).not.toContain('force-push')
+    agentsDo(root, run)
+    await report(needs, root, run)
+    const reviewing = runOf(root, 'app-7-c3d4')
+    agentsDo(root, reviewing)
+    await report(needs, root, reviewing)
+    expect(runOf(root, 'app-7-c3d4').points).toEqual([])
+    expect(runOf(root, 'app-7-c3d4').rejected.some((one) => one.why.includes('not about new code'))).toBe(true)
   })
 
   test('a re-review reads only the delta: a new point on unchanged lines is refused', async () => {

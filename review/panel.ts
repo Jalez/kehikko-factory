@@ -11,7 +11,8 @@ import type { CheckedPoint } from './validate.ts'
  *    that finds nothing blocking says so plainly;
  *  - "close this change" stands only when both reviewers, the adversary and the judge said so;
  *    otherwise it is "request changes", and the record says it was not unanimous;
- *  - the path to success is exactly the required points, numbered. Doing those gets it approved.
+ *  - the path to success is exactly the required points, one step each, unnumbered (whoever shows
+ *    it numbers it: Review does, under "To get this approved:"). Doing those gets it approved.
  */
 
 export const MAX_OPTIONAL = 3
@@ -32,10 +33,13 @@ export interface Ruled {
 export interface PanelResult {
   rulings: Ruled[]
   verdict: PanelVerdict
-  /** The required points as a person acts on them: "To get this approved:" */
+  /** The required points as a person acts on them, one step each, unnumbered: "To get this approved:" */
   pathToSuccess: string[]
   notes: string[]
 }
+
+/** The steps numbered, for a place that shows them as text. */
+export const numbered = (steps: readonly string[]): string[] => steps.map((step, i) => `${i + 1}. ${step}`)
 
 export function placeOf(point: Pick<CheckedPoint, 'path' | 'line' | 'startLine' | 'also'>): string {
   const first = `${point.path}:${point.startLine && point.startLine !== point.line ? `${point.startLine}-` : ''}${point.line}`
@@ -91,11 +95,11 @@ export function rulePanel(input: {
 
   const points = new Map(input.points.map((point) => [point.id, point]))
   const generals = new Map(general.map((point) => [point.id, point]))
-  const pathToSuccess = required.map((one, i) => {
+  const pathToSuccess = required.map((one) => {
     const point = points.get(one.point)
-    if (point) return `${i + 1}. ${point.suggestion} (${placeOf(point)}): ${point.claim}`
+    if (point) return `${point.suggestion} (${placeOf(point)}): ${point.claim}`
     const raised = generals.get(one.point)
-    return `${i + 1}. ${raised?.suggestion ?? one.point} ${raised ? `— ${raised.claim}` : ''}`.trim()
+    return `${raised?.suggestion ?? one.point} ${raised ? `— ${raised.claim}` : ''}`.trim()
   })
   return { rulings, verdict, pathToSuccess, notes }
 }

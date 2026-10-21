@@ -71,7 +71,7 @@ describe('Review and Paper, through their doors', () => {
       verdict: 'request-changes',
       visionFit: 'It fits the epic.',
       summary: 'One fix.',
-      pathToSuccess: ['1. Uppercase it. (greet.js:2): Not loud.'],
+      pathToSuccess: ['Uppercase it. (greet.js:2): Not loud.'],
       close: null,
       diagrams: [],
       notes: [],
@@ -84,8 +84,9 @@ describe('Review and Paper, through their doors', () => {
     expect(calls.map((one) => `${one.id}:${one.tool}`)).toEqual([`${REVIEW}:drop_run_comments`, `${REVIEW}:add_comment`, `${REVIEW}:propose_review`])
     expect(calls[0]!.args).toEqual({ project: '/p', change: CHANGE.url, run: 'app-7-0000' })
     expect(calls[1]!.args).toMatchObject({ path: 'greet.js', line: 2, side: 'new', meta: { run: 'app-7-a1b2', severity: 'blocking', ruling: 'required', reason: 'A bug.', challenge: 'It is loud enough.' } })
-    expect(calls[2]!.args).toMatchObject({ run: 'app-7-a1b2', verdict: 'request-changes', door: 'two-way', uiux: false, pathToSuccess: ['1. Uppercase it. (greet.js:2): Not loud.'] })
-    expect(String(calls[2]!.args.summary)).toContain('To get this approved:')
+    expect(calls[2]!.args).toMatchObject({ run: 'app-7-a1b2', verdict: 'request-changes', door: 'two-way', uiux: false, pathToSuccess: ['Uppercase it. (greet.js:2): Not loud.'] })
+    expect(String(calls[2]!.args.summary)).not.toContain('To get this approved')
+    expect(String(calls[2]!.args.summary)).toContain('It fits the epic.')
     expect(done).toMatchObject({ comments: 1, refused: [], proposal: true })
   })
 

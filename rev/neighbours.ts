@@ -199,15 +199,17 @@ export function commentBody(point: Run['points'][number], ruling: { ruling: stri
   return out.join('\n')
 }
 
-/** The summary proposed beside the person's: the judge's words, the vision, and the path to success. */
+/**
+ * The summary proposed beside the person's: the judge's words and the vision. The path to success
+ * goes beside it as `pathToSuccess`, and Review adds it under "To get this approved:", numbered.
+ */
 export function summaryOf(run: Pick<Run, 'judged' | 'vision' | 'plan'>): string {
   const judged = run.judged!
   const out = [judged.summary.trim()]
   if (judged.visionFit.trim()) out.push('', judged.visionFit.trim())
   else if (!run.vision?.epic) out.push('', 'This change is in no epic, so it was reviewed without a vision to weigh it against.')
   if (judged.verdict === 'close' && judged.close) out.push('', `Close this change: ${judged.close.why}`, `Instead: ${judged.close.instead}`)
-  if (judged.pathToSuccess.length && judged.verdict !== 'approve') out.push('', 'To get this approved:', ...judged.pathToSuccess)
-  else if (judged.verdict === 'approve') out.push('', 'Nothing blocks this change.')
+  if (judged.verdict === 'approve') out.push('', 'Nothing blocks this change.')
   return out.join('\n').slice(0, 20_000)
 }
 
