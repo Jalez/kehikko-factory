@@ -51,7 +51,40 @@ export function anchorOf(job: Job, epic: string | null): Anchors {
   return [{ whole: true }]
 }
 
-/** The jobs a view shows: this epic's, or all of the project's; cleared ones never. */
-export function inView<J extends Job>(jobs: readonly J[], view: 'epic' | 'all', epic: string | null): J[] {
-  return jobs.filter((job) => !job.archived && (view === 'all' || (epic !== null && job.place?.epic === epic)))
+/** What a view needs of a job or a review run: whether it is cleared, and where it was started. */
+export interface Placed {
+  archived?: boolean
+  place?: { epic?: string; parts?: string[] } | null
+}
+
+/**
+ * The jobs (or review runs) a view shows; cleared ones never.
+ *
+ *  - `all`: the whole project, ignoring the epic and the parts.
+ *  - `epic`: this epic's. With parts picked, only those whose parts meet the picked ones; a job with
+ *    no parts is about the whole epic and shows in every parts view. With none picked, all of the
+ *    epic's.
+ *
+ * Which project is not decided here: the board is read per project path, so nothing of another
+ * project is ever in `items`.
+ */
+export function inView<J extends Placed>(items: readonly J[], view: 'epic' | 'all', epic: string | null, picked: readonly string[] = []): J[] {
+  return items.filter((item) => {
+    if (item.archived) return false
+    if (view === 'all') return true
+    if (epic === null || item.place?.epic !== epic) return false
+    const parts = item.place.parts ?? []
+    return picked.length === 0 || parts.length === 0 || parts.some((part) => picked.includes(part))
+  })
+}
+
+/** "Methods, Results", or "all parts" when none is picked. */
+export function partsWords(picked: readonly { id: string; heading?: string }[]): string {
+  return picked.length ? picked.map((part) => part.heading || part.id).join(', ') : 'all parts'
+}
+
+/** What a board says it shows: "Jobs on <epic> · Methods, Results", "All jobs", "Reviews on <epic> · all parts". */
+export function scopeLine(noun: 'Jobs' | 'Reviews', view: 'epic' | 'all', epic: string | null, picked: readonly { id: string; heading?: string }[]): string {
+  if (view === 'all') return `All ${noun.toLowerCase()}`
+  return epic ? `${noun} on ${epic} · ${partsWords(picked)}` : 'No epic open'
 }

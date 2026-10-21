@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { LIMITS, activityItemsSchema, pickedParts, trackerColumnsResult, trackerReadingResult, type HeaderItem, type PressValue } from 'kehikot-module-protocol'
-import { Cover, coverFor, useFocus, useHost, useServerStanding, type Host as ProtocolHost } from 'kehikot-module-protocol/client/react'
+import { Cover, coverFor, useHost, useServerStanding, type Host as ProtocolHost } from 'kehikot-module-protocol/client/react'
 
 import { ID } from '../manifest.ts'
 
-import { COLUMNS, anchorOf, columnOf, inView } from '@/board/columns'
+import { COLUMNS, columnOf, inView, partsWords, scopeLine } from '@/board/columns'
 import { headerItems, decisionRefusal, type View } from '@/board/header'
 import { inboxItems } from '@/board/inbox'
 import { reviewInboxItems } from '@/board/review-inbox'
@@ -18,7 +18,7 @@ import { QueueView } from '@/view/queue-view'
 import { ReviewBoardView } from '@/view/review-board'
 import { ReviewSettingsView } from '@/view/review-settings'
 import { ReviewView } from '@/view/review-view'
-import { api as realApi, type Api, type Board, type BoardJob, type FoundBoard, type ReviewBoard } from '@/wire/api'
+import { api as realApi, type Api, type Board, type BoardJob, type BoardRun, type FoundBoard, type ReviewBoard } from '@/wire/api'
 
 type Press = { item: string; value?: PressValue }
 type PressAnswer = string | true | void
@@ -117,10 +117,14 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
 
   /* ---- What is shown ---------------------------------------------------- */
 
-  const focus = useFocus({ parts, epic, projectPath })
   const jobs = board?.jobs ?? []
-  const viewed = useMemo(() => inView(jobs, view === 'reviews' ? 'epic' : view, epic), [jobs, view, epic])
-  const narrowed = focus.narrow(viewed, (job) => anchorOf(job, epic), { noun: 'job', keep: (job) => job.id === selected })
+  const pickedKey = JSON.stringify(pickedParts(parts).map((part) => [part.id, part.heading]))
+  const picked = useMemo(() => (JSON.parse(pickedKey) as [string, string][]).map(([id, heading]) => ({ id, heading })), [pickedKey])
+  const pickedIds = useMemo(() => picked.map((part) => part.id), [picked])
+  const shownJobs = useMemo(() => inView(jobs, view === 'all' ? 'all' : 'epic', epic, pickedIds), [jobs, view, epic, pickedIds])
+  const runs = reviews?.runs
+  const shownRuns = useMemo(() => inView(runs ?? [], 'epic', epic, pickedIds), [runs, epic, pickedIds])
+  const shownQuestions = useMemo(() => (reviews?.questions ?? []).filter((one) => shownRuns.some((run) => run.id === one.run)), [reviews, shownRuns])
   const open = view === 'reviews' ? null : (jobs.find((job) => job.id === selected) ?? null)
 
   /* ---- The Inbox: the whole list, every time it changes ------------------ */
@@ -194,12 +198,11 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   const cover = server === 'stale' ? 'stale' : (coverFor(host as never, { project: true }) ?? (server === 'down' && !board ? 'down' : null))
   if (cover) return <Cover state={cover} name="Factory" onRetry={() => void read()} />
 
-  const picked = pickedParts(parts).map((part) => part.id)
   return (
     <div className="flex h-screen min-w-0 flex-col text-sm">
       <header className="flex min-h-8 shrink-0 items-center gap-2 border-b px-2 py-1">
         <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted-foreground)]" data-testid="summary">
-          {summary(jobs, view, epic, reviews)}
+          {summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length)}
         </span>
         {host.where === 'unhosted' ? <HeaderMenus items={menus} onPress={onPress} /> : null}
         <Button size="sm" variant={side ? 'secondary' : 'ghost'} className="h-6 shrink-0 px-2 text-xs" onClick={() => setSide((was) => !was)} aria-pressed={side}>
@@ -217,7 +220,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
       {trouble ? <p role="alert" className="shrink-0 border-b px-2 py-1 text-xs text-[var(--destructive)]">{trouble}</p> : null}
       {side && board && projectPath && view !== 'reviews' ? (
         <div className="max-h-[50%] shrink-0 overflow-auto border-b">
-          <QueueView board={board} projectPath={projectPath} epic={epic} parts={picked} api={api} hostBoards={hostBoards} onSaid={say} />
+          <QueueView board={board} projectPath={projectPath} epic={epic} parts={pickedIds} api={api} hostBoards={hostBoards} onSaid={say} />
         </div>
       ) : null}
       {side && reviews && projectPath && view === 'reviews' ? (
@@ -244,7 +247,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
           }
           return (
             <main className="min-h-0 flex-1 overflow-auto">
-              {!reviews ? <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the reviews…</p> : <ReviewBoardView runs={reviews.runs} questions={reviews.questions} selected={openRun} onOpen={setOpenRun} />}
+              {!reviews ? <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the reviews…</p> : <ReviewBoardView runs={shownRuns} questions={shownQuestions} selected={openRun} onOpen={setOpenRun} empty={reviewsEmpty(epic, picked, reviews.runs.some((one) => !one.archived))} />}
             </main>
           )
         })()
@@ -254,12 +257,12 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
         <main className="min-h-0 flex-1 overflow-auto">
           {!board ? (
             <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the jobs…</p>
-          ) : narrowed.shown.length === 0 ? (
-            <Empty empty={narrowed.empty} view={view} epic={epic} any={jobs.some((job) => !job.archived)} />
+          ) : shownJobs.length === 0 ? (
+            <Empty view={view} epic={epic} picked={picked} any={jobs.some((job) => !job.archived)} />
           ) : (
             <div className="flex min-h-full gap-2 p-2" data-testid="board">
               {COLUMNS.map((column) => {
-                const here = narrowed.shown.filter((job) => columnOf(job.stage) === column.id)
+                const here = shownJobs.filter((job) => columnOf(job.stage) === column.id)
                 if (!here.length && (column.id === 'failed' || column.id === 'merged')) return null
                 return (
                   <section key={column.id} aria-label={column.label} className="flex w-44 shrink-0 flex-col gap-1.5" data-testid={`column-${column.id}`}>
@@ -316,26 +319,31 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   )
 }
 
-function summary(jobs: readonly BoardJob[], view: View, epic: string | null, reviews: ReviewBoard | null = null): string {
+function summary(jobs: readonly BoardJob[], view: View, epic: string | null, picked: readonly { id: string; heading: string }[], runs: readonly BoardRun[], questions: number): string {
   if (view === 'reviews') {
-    const runs = (reviews?.runs ?? []).filter((run) => !run.archived)
-    const waiting = runs.filter((run) => run.waiting !== null).length + (reviews?.questions.length ?? 0)
-    return `Reviews${waiting ? ` · ${waiting} waiting for you` : ''}`
+    const waiting = runs.filter((run) => run.waiting !== null).length + questions
+    return `${scopeLine('Reviews', 'epic', epic, picked)}${waiting ? ` · ${waiting} waiting for you` : ''}`
   }
-  const live = jobs.filter((job) => !job.archived)
-  const waiting = live.filter((job) => job.stage === 'waiting').length
-  const scope = view === 'all' ? 'All jobs' : epic ? `Jobs on ${epic}` : 'No epic open'
-  return `${scope}${waiting ? ` · ${waiting} waiting for you` : ''}`
+  const waiting = jobs.filter((job) => job.stage === 'waiting').length
+  return `${scopeLine('Jobs', view, epic, picked)}${waiting ? ` · ${waiting} waiting for you` : ''}`
 }
 
-function Empty({ empty, view, epic, any }: { empty: string; view: View; epic: string | null; any: boolean }) {
+/** The empty Reviews board's words: no epic, the picked parts, or nothing reviewed yet. */
+export function reviewsEmpty(epic: string | null, picked: readonly { id: string; heading: string }[], any: boolean): string | undefined {
+  if (!epic) return 'No epic is open. Open an epic to see its reviews.'
+  if (!any) return undefined
+  return picked.length ? `No review on ${epic} is in the picked ${picked.length === 1 ? 'part' : 'parts'}: ${partsWords(picked)}.` : `No review was started on ${epic}.`
+}
+
+function Empty({ view, epic, picked, any }: { view: View; epic: string | null; picked: readonly { id: string; heading: string }[]; any: boolean }) {
   const line =
-    empty
-    || (view === 'epic' && !epic
+    view === 'epic' && !epic
       ? 'No epic is open. Switch the view to all jobs, or open an epic.'
-      : view === 'epic' && any
-        ? 'No job was started on this epic. Switch the view to all jobs to see the others.'
-        : 'No jobs yet. In a Claude Code conversation in this project, type /factory <feature>.')
+      : view === 'epic' && any && picked.length
+        ? `No job on ${epic} is in the picked ${picked.length === 1 ? 'part' : 'parts'}: ${partsWords(picked)}. Jobs on the whole epic show here too.`
+        : view === 'epic' && any
+          ? 'No job was started on this epic. Switch the view to all jobs to see the others.'
+          : 'No jobs yet. In a Claude Code conversation in this project, type /factory <feature>.'
   return (
     <div className="flex flex-col gap-1 p-3 text-xs text-[var(--muted-foreground)]" data-testid="empty">
       <p>{line}</p>
