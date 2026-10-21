@@ -139,3 +139,224 @@ export function judgePrompt(subject: Subject, angles: readonly Angle[], conteste
 export function requiredList(required: readonly Point[]): string[] {
   return required.map((one, i) => `${i + 1}. (${one.angle}) ${one.point}`)
 }
+
+/* ------------------------------------------------------------------ *
+ * The review panel: a planner, two reviewers, one adversary over every point, a judge, and a
+ * diagram agent only when the judge asks for one. Same angles, same plain-language rules, a
+ * structured answer each (`points.ts`).
+ * ------------------------------------------------------------------ */
+
+export interface PanelSubject {
+  /** The change in a few words: "gh:owner/repo#12 — Make it shout (https://…)". */
+  change: string
+  /** The module's input packet: description, commits, linked issues, vision, checklists, budget. */
+  packet: string
+  /** The whole change's diff, as a file (the lines every point is anchored in). */
+  diff: string
+  /** On a re-review: the diff since the last review. */
+  delta?: string
+  /** A checkout of the change at the pinned head, its own worktree, to read files beyond the diff. */
+  checkout: string
+  head: string
+  files: {
+    plan: string
+    review: (angle: string) => string
+    points: string
+    challenge: string
+    judgement: string
+    diagrams: string
+    briefing: string
+  }
+  budget: { pointsPerReviewer: number; filesBeyondDiff: number }
+  /** The sentence that lets reviewers run the project's own tests, or null: read only. */
+  runTests: string | null
+  /** 1 for a first review; 2 and 3 are re-reviews. */
+  round: number
+  /** On a re-review: the points listed last time ("To get this approved"). */
+  listed: readonly { id: string; text: string }[]
+  /** The caller's rule about what may be written. */
+  only: string
+}
+
+export const PLAIN =
+  'Write for a busy person who is juggling many things: short sentences, plain words, no jargon they have to look up, '
+  + 'nothing said twice. A point says what is wrong, why it matters, and what to do — nothing else.'
+
+const readOnly = (subject: PanelSubject) =>
+  subject.runTests
+    ? `You read the change; you change nothing. ${subject.runTests}`
+    : 'You read the change; you change nothing, and you run nothing: no tests, no builds, no scripts.'
+
+const json = (shape: string) => ['End your file with ONE fenced block, ```json … ```, exactly in this shape (the module reads it; the rest of the file is for the person):', '', '```json', shape, '```']
+
+export function panelPlannerPrompt(
+  subject: PanelSubject,
+  input: { doorRule: string | null; items: readonly { checklist: string; item: string; text: string }[]; asked: readonly string[] | null },
+): string {
+  const known = Object.entries(KNOWN_ANGLES).map(([id, brief]) => `- ${id}: ${brief}`)
+  return lines(
+    `You plan the review of a change: ${subject.change}.`,
+    '',
+    `Read the packet (${subject.packet}) — the description, the commits, the epic it belongs to and its checklists — and the diff (${subject.diff}). `
+      + `The change is checked out at ${subject.head} in ${subject.checkout}, if you need a file beyond the diff. ${readOnly(subject)}`,
+    '',
+    input.asked
+      ? `1. The person chose the two angles: ${input.asked.join(', ')}. Write a brief for each.`
+      : '1. Choose TWO angles from which THIS change can go wrong (some that often matter are below; you may go beyond them).',
+    input.asked ? [] : known,
+    '   For each, a one-paragraph brief naming the best practices that apply to THIS change, each with a source (a link, or a file of the project).',
+    input.items.length
+      ? [`2. Split these checklist items between the two angles, each item to exactly one (the angle best placed to check it):`, ...input.items.map((one) => `   - ${one.checklist}/${one.item}: ${one.text}`)]
+      : [
+          `2. The change has no checklist. Propose one: at most 15 items, each ONE fact a reviewer can check by reading the change (not "code is good"). `
+            + 'The person accepts or edits it before the review goes on.',
+        ],
+    '3. Say whether the change is ONE-WAY (hard or impossible to undo: a database migration, deleting data, a public API or file format, auth and permissions, '
+      + 'deploy and infrastructure, a dependency or licence, anything shipped to users that cannot be recalled) or TWO-WAY (cheap to undo), with your reasons. '
+      + 'When in doubt it is one-way.',
+    input.doorRule ? `   The project's own rule already decides: ${input.doorRule} Apply it; say so in your reasons.` : [],
+    '4. Say whether it touches what people see (UI/UX), and which screens.',
+    '',
+    `Write ${subject.files.plan}: a few lines for the person on why these angles, then`,
+    ...json(
+      '{ "angles": [ { "id": "correctness", "brief": "…", "practices": [ { "name": "…", "source": "https://… or path" } ], "items": [ "<checklist>/<item>" ] }, { …the second… } ],\n'
+        + '  "door": { "kind": "one-way" | "two-way", "reasons": [ "…" ] },\n'
+        + '  "uiux": { "touches": true | false, "reason": "…", "screens": [ "…" ] }'
+        + (input.items.length ? ' }' : ',\n  "proposedChecklist": [ "one checkable fact", "…" ] }'),
+    ),
+    '',
+    PLAIN,
+    subject.only,
+  )
+}
+
+export function panelReviewerPrompt(
+  subject: PanelSubject,
+  angle: { id: string; brief: string; practices: readonly { name: string; source: string }[] },
+  items: readonly { checklist: string; item: string; text: string }[],
+): string {
+  const again = subject.round > 1
+  return lines(
+    `You review a change from ONE angle: ${angle.id}. The change: ${subject.change}.`,
+    '',
+    `Your brief: ${angle.brief}`,
+    angle.practices.length ? ['Practices that apply here:', ...angle.practices.map((one) => `- ${one.name} (${one.source})`)] : [],
+    '',
+    `Read the packet (${subject.packet}) — what the change is for, and the epic it should fit — and the diff (${subject.diff}). `
+      + `The change is checked out at ${subject.head} in ${subject.checkout}; read at most ${subject.budget.filesBeyondDiff} files beyond the diff. ${readOnly(subject)}`,
+    again && subject.delta
+      ? [
+          '',
+          `This is re-review round ${subject.round}. Judge ONLY what changed since the last review (${subject.delta}) and whether these listed points are now met:`,
+          ...subject.listed.map((one) => `- ${one.id}: ${one.text}`),
+          'A listed point that is still not met is a point again, with `"listed": "<its id>"`. A NEW point must be about lines in the new diff. Do not move the goalposts.',
+        ]
+      : [],
+    '',
+    `Stay on your angle; the other reviewer covers the rest. Raise a point only for something wrong or missing, never for taste. At most ${subject.budget.pointsPerReviewer} points, the most important first.`,
+    'Every point:',
+    '- is ANCHORED to the lines that show the problem: the path as the diff prints it, the side ("new" for added or unchanged lines, "old" for removed ones), '
+      + 'the line number (and startLine for a range, inside one hunk), from the diff file above. Copy those lines exactly into "quote".',
+    '- is PROVEN: at least one source in "evidence" — a line (path:line), a test or a reproduction, the project\'s own doc or code, or a named practice with a link. '
+      + 'A claim about code elsewhere needs a source from there, not just these lines.',
+    '- is SHORT: claim (at most two sentences), why it matters, and what to do — together under 600 characters.',
+    '- has a severity: "blocking" (a bug, lost data, a hole, a broken caller), "risk" (likely to go wrong), "nice" (would be better).',
+    items.length
+      ? ['', 'Answer each of these checklist items, to the letter: pass, fail or n/a, with a note on how you know (the line, the test, the file). Skip none:', ...items.map((one) => `- ${one.checklist}/${one.item}: ${one.text}`)]
+      : [],
+    '',
+    'Only if the change should be closed rather than fixed (it duplicates another, or goes against where the epic is going), say so in "close" with why and what to do instead.',
+    '',
+    `Write ${subject.files.review(angle.id)}: what you checked and found sound, in a few lines, then`,
+    ...json(
+      '{ "verdict": "APPROVE" | "CHANGES",\n'
+        + '  "points": [ { "path": "src/a.ts", "side": "new", "line": 42, "startLine": 40, "quote": "…the lines…", "claim": "…", "why": "…", "suggestion": "…",\n'
+        + '                "severity": "blocking" | "risk" | "nice", "evidence": [ { "kind": "line" | "test" | "doc" | "practice", "ref": "…", "quote": "…" } ], "checklist": [ "<checklist>/<item>" ] } ],\n'
+        + '  "answers": [ { "checklist": "…", "item": "…", "state": "pass" | "fail" | "n/a", "note": "how I know" } ] }',
+    ),
+    '',
+    PLAIN,
+    subject.only,
+  )
+}
+
+export function adversaryPrompt(subject: PanelSubject, input: { closeAsked: boolean }): string {
+  return lines(
+    `You are the adversary of a review of ${subject.change}. Two reviewers made the points in ${subject.files.points}, each with an id.`,
+    '',
+    `Read them, the packet (${subject.packet}), the diff (${subject.diff}) and, where you need it, the checkout at ${subject.head} in ${subject.checkout}. ${readOnly(subject)}`,
+    '',
+    'For EACH point, either concede it in a line, or make the strongest HONEST case against it, with evidence: the lines do not show it, the claim is wrong, '
+      + 'it is not worth what it costs, or it goes against the direction of the epic. A case that defends a real bug helps nobody: concede those.',
+    'One round only. You do not rule; a judge reads both sides.',
+    input.closeAsked ? 'A reviewer asked to close the change. Say whether you agree, in "close".' : [],
+    '',
+    `Write ${subject.files.challenge}, then`,
+    ...json('{ "challenges": [ { "point": "p1", "concede": true | false, "case": "…", "evidence": [ { "kind": "line" | "test" | "doc" | "practice", "ref": "…" } ] } ]' + (input.closeAsked ? ', "close": true | false }' : ' }')),
+    '',
+    PLAIN,
+    subject.only,
+  )
+}
+
+export function panelJudgePrompt(subject: PanelSubject, input: { vision: boolean; oneWay: boolean; challenged: boolean; closeAsked: boolean }): string {
+  return lines(
+    `You are the judge of a review of ${subject.change}. Your ruling is final.`,
+    '',
+    `Read the packet (${subject.packet})${input.vision ? ', with the epic this change belongs to' : ' (this change is in no epic, so there is no vision to weigh it against; say so)'}, `
+      + `the points (${subject.files.points})${input.challenged ? `, the adversary's case against them (${subject.files.challenge})` : ''}, the checklist answers in the reviews, and the diff (${subject.diff}). ${readOnly(subject)}`,
+    '',
+    'The priority is a bug-free but STEADY release of real improvements that fit the existing vision. Not perfection, and not every nice-to-have.',
+    'Rule each point by its id:',
+    '- required: it blocks a bug-free release (a bug, lost data, a hole, a broken caller, a failed checklist item that matters).',
+    '- optional: worth doing, not worth blocking. At most THREE; prefer the ones that serve the epic.',
+    '- rejected: the adversary\'s case holds, the lines do not show it, or it is taste. Each ruling with a one-line reason.',
+    subject.round > 1 ? `This is re-review round ${subject.round}: require only listed points still not met, and new problems in new code. Never a new demand on code that did not change.` : [],
+    '',
+    'Then: the vision fit in ONE sentence; the verdict — "approve" when nothing is required (say so plainly), "comment" for optional points only, '
+      + '"request-changes" when anything is required; and a summary that fits on one screen. Do not list the required points in the summary: the module adds "To get this approved:" from your rulings.',
+    input.closeAsked
+      ? '"close" only if you agree with the reviewer(s) who asked to close it AND the adversary agreed; say why and what to do instead in "close". It stands only when everyone agrees.'
+      : 'Do not ask to close the change: no reviewer did.',
+    'If a point about structure or interaction would be clearer drawn, request a diagram in one line: the point, "sequence" (call order) or "graph" (what depends on what), what it is now and what is proposed. At most one or two; none is usual.',
+    input.oneWay
+      ? [
+          '',
+          `This change is ONE-WAY: hard to undo. Also write ${subject.files.briefing}, a decision briefing for the person, who must understand it before anything is posted: `
+            + 'every important decision the change makes, the alternatives and why this one; the risks and what cannot be undone; and what they should check in the '
+            + 'functionality themselves. Not every line. Plain markdown, at most two screens.',
+        ]
+      : [],
+    '',
+    `Write ${subject.files.judgement}, then`,
+    ...json(
+      '{ "rulings": [ { "point": "p1", "ruling": "required" | "optional" | "rejected", "reason": "…" } ],\n'
+        + '  "verdict": "approve" | "comment" | "request-changes"' + (input.closeAsked ? ' | "close"' : '') + ', "visionFit": "…", "summary": "…",\n'
+        + (input.closeAsked ? '  "close": { "why": "…", "instead": "…" },\n' : '')
+        + '  "diagrams": [ { "point": "p1", "kind": "sequence" | "graph", "now": "…", "proposed": "…" } ] }',
+    ),
+    '',
+    PLAIN,
+    subject.only,
+  )
+}
+
+export function diagramPrompt(
+  subject: PanelSubject,
+  input: { project: string; epic: string; requests: readonly { point: string; kind: 'sequence' | 'graph'; now: string; proposed: string }[]; runId: string },
+): string {
+  return lines(
+    `You draw what the judge of a review of ${subject.change} asked for, with the Flows module's \`write_flow\` tool (project ${input.project}, epic ${input.epic}).`,
+    '',
+    `Read the points (${subject.files.points}), the judgement (${subject.files.judgement}) and the code you need in ${subject.checkout}. ${readOnly(subject)}`,
+    '',
+    'For each request, write TWO flows of the same kind: "now" and "proposed", with ids `review-<point>-now` and `review-<point>-proposed` (prefix them with '
+      + `\`${input.runId}-\`), kind "sequence" for call order or "graph" for what depends on what, a few stages each that walk a person through it.`,
+    ...input.requests.map((one) => `- ${one.point} (${one.kind}): now — ${one.now}; proposed — ${one.proposed}`),
+    'If the Flows tools are not connected in this conversation, do not install anything: write that in the file below and stop.',
+    '',
+    `Write ${subject.files.diagrams}: one line per flow you wrote, exactly \`- <point>: <flow id>\`, or why you could not.`,
+    '',
+    subject.only,
+  )
+}
