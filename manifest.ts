@@ -47,6 +47,9 @@ export const PREFERRED_PORT = 8040
  * on a Reviews board (a View switch). It posts nothing itself, except a two-way change with no UI/UX
  * when the person turned "Post two-way reviews by myself" on, through Review's Factory-only send.
  *
+ * `view:navigate`: "Open the change in Review" on a review waiting for the person asks the host to
+ * show the change's ref (`view.goto`), so Review, beside it, opens the draft.
+ *
  * ## `reacts: ['parts']`
  *
  * A job started from a conversation placed on parts of an epic belongs to those parts, and the
@@ -80,7 +83,7 @@ export const DECLARED: Manifest = manifestSchema.parse({
   reacts: ['parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
-    uses: ['activity:report', 'trackers:read'],
+    uses: ['activity:report', 'trackers:read', 'view:navigate'],
     storage: true,
     prompt: false,
   },
