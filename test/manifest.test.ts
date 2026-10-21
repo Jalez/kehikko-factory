@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { MODULE_ID, manifestSchema, moduleFolder } from 'kehikot-module-protocol'
+import { MODULE_ID, manifestSchema, moduleFolder, showsProject } from 'kehikot-module-protocol'
 
 import { MANIFEST } from '../doors.ts'
 import { ID, PREFERRED_PORT } from '../manifest.ts'
@@ -16,6 +16,11 @@ describe('the manifest', () => {
     expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read', 'view:navigate'])
     expect(MANIFEST.declares.skills?.map((one) => one.name)).toEqual(['factory', 'review-factory'])
     expect(MANIFEST.declares.storage).toBe(true)
+  })
+
+  test('can show a whole project: "All epics" in the host (protocol 2.9.0)', () => {
+    expect(MANIFEST.declares.scopes).toEqual(['epic', 'project'])
+    expect(showsProject(MANIFEST)).toBe(true)
   })
 
   test('prefers 8040, on the ten-apart grid', () => {

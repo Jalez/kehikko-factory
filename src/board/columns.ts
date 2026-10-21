@@ -78,13 +78,38 @@ export function inView<J extends Placed>(items: readonly J[], view: 'epic' | 'al
   })
 }
 
+/**
+ * Which items a board shows, given the host's scope (protocol 2.9.0): with "All epics" open in the
+ * host (`scope: 'project'`) every board shows the whole project — every epic's items, and those
+ * started on no epic — whatever its own View says; otherwise the View decides.
+ */
+export function boardView(view: 'epic' | 'all', scope: 'epic' | 'project' = 'epic'): 'epic' | 'all' {
+  return scope === 'project' ? 'all' : view
+}
+
+/** A card's epic label, for a board showing more than one epic: the epic and its parts, or "no epic". */
+export function placeLabel(place: { epic?: string; parts?: string[] } | null | undefined): string {
+  if (!place?.epic) return 'no epic'
+  return place.parts?.length ? `${place.epic} · ${place.parts.join(', ')}` : place.epic
+}
+
 /** "Methods, Results", or "all parts" when none is picked. */
 export function partsWords(picked: readonly { id: string; heading?: string }[]): string {
   return picked.length ? picked.map((part) => part.heading || part.id).join(', ') : 'all parts'
 }
 
-/** What a board says it shows: "Jobs on <epic> · Methods, Results", "All jobs", "Reviews on <epic> · all parts". */
-export function scopeLine(noun: 'Jobs' | 'Reviews', view: 'epic' | 'all', epic: string | null, picked: readonly { id: string; heading?: string }[]): string {
+/**
+ * What a board says it shows: "Jobs on <epic> · Methods, Results", "All jobs", "Reviews on <epic> · all
+ * parts", "Jobs on all epics" (the host's "All epics").
+ */
+export function scopeLine(
+  noun: 'Jobs' | 'Reviews',
+  view: 'epic' | 'all',
+  epic: string | null,
+  picked: readonly { id: string; heading?: string }[],
+  scope: 'epic' | 'project' = 'epic',
+): string {
+  if (scope === 'project') return `${noun} on all epics`
   if (view === 'all') return `All ${noun.toLowerCase()}`
   return epic ? `${noun} on ${epic} · ${partsWords(picked)}` : 'No epic open'
 }

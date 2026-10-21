@@ -5,7 +5,7 @@ import { Cover, coverFor, useHost, useServerStanding, type Host as ProtocolHost 
 
 import { ID } from '../manifest.ts'
 
-import { COLUMNS, columnOf, inView, partsWords, scopeLine } from '@/board/columns'
+import { COLUMNS, boardView, columnOf, inView, partsWords, scopeLine } from '@/board/columns'
 import { headerItems, decisionRefusal, type View } from '@/board/header'
 import { inboxItems } from '@/board/inbox'
 import { reviewInboxItems } from '@/board/review-inbox'
@@ -25,7 +25,7 @@ type PressAnswer = string | true | void
 
 /** What the screen needs from the host. A plain object, so a test can draw the board without one. */
 export type Host = Pick<ProtocolHost, 'where' | 'projectPath' | 'epic' | 'parts' | 'header' | 'activity' | 'request'> &
-  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection'>>
+  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope'>>
 
 /** How often the page hands the host's rows of the changes under review to the server, for re-review signals. */
 export const ROWS_EVERY_MS = 2 * 60 * 1000
@@ -42,6 +42,8 @@ export function App() {
  */
 export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; press?: { current: (press: Press) => PressAnswer } }) {
   const { projectPath, epic, parts } = host
+  /* "All epics" in the host (protocol 2.9.0): both boards show the whole project, each card labelled with its epic. */
+  const scope = host.scope ?? 'epic'
   const server = useServerStanding()
   const [board, setBoard] = useState<Board | null>(null)
   const [trouble, setTrouble] = useState<string | null>(null)
@@ -121,9 +123,11 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   const pickedKey = JSON.stringify(pickedParts(parts).map((part) => [part.id, part.heading]))
   const picked = useMemo(() => (JSON.parse(pickedKey) as [string, string][]).map(([id, heading]) => ({ id, heading })), [pickedKey])
   const pickedIds = useMemo(() => picked.map((part) => part.id), [picked])
-  const shownJobs = useMemo(() => inView(jobs, view === 'all' ? 'all' : 'epic', epic, pickedIds), [jobs, view, epic, pickedIds])
+  const jobsView = boardView(view === 'all' ? 'all' : 'epic', scope)
+  const runsView = boardView('epic', scope)
+  const shownJobs = useMemo(() => inView(jobs, jobsView, epic, pickedIds), [jobs, jobsView, epic, pickedIds])
   const runs = reviews?.runs
-  const shownRuns = useMemo(() => inView(runs ?? [], 'epic', epic, pickedIds), [runs, epic, pickedIds])
+  const shownRuns = useMemo(() => inView(runs ?? [], runsView, epic, pickedIds), [runs, runsView, epic, pickedIds])
   const shownQuestions = useMemo(() => (reviews?.questions ?? []).filter((one) => shownRuns.some((run) => run.id === one.run)), [reviews, shownRuns])
   const open = view === 'reviews' ? null : (jobs.find((job) => job.id === selected) ?? null)
 
@@ -179,7 +183,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   )
   if (press) press.current = onPress
 
-  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy, epic), [view, open, busy, epic])
+  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy, epic, scope), [view, open, busy, epic, scope])
   const { header } = host
   useEffect(() => header(menus), [header, menus])
 
@@ -202,7 +206,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
     <div className="flex h-screen min-w-0 flex-col text-sm">
       <header className="flex min-h-8 shrink-0 items-center gap-2 border-b px-2 py-1">
         <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted-foreground)]" data-testid="summary">
-          {summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length)}
+          {summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length, scope)}
         </span>
         {host.where === 'unhosted' ? <HeaderMenus items={menus} onPress={onPress} /> : null}
         <Button size="sm" variant={side ? 'secondary' : 'ghost'} className="h-6 shrink-0 px-2 text-xs" onClick={() => setSide((was) => !was)} aria-pressed={side}>
@@ -247,7 +251,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
           }
           return (
             <main className="min-h-0 flex-1 overflow-auto">
-              {!reviews ? <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the reviews…</p> : <ReviewBoardView runs={shownRuns} questions={shownQuestions} selected={openRun} onOpen={setOpenRun} empty={reviewsEmpty(epic, picked, reviews.runs.some((one) => !one.archived))} />}
+              {!reviews ? <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the reviews…</p> : <ReviewBoardView runs={shownRuns} questions={shownQuestions} selected={openRun} onOpen={setOpenRun} showPlace={runsView === 'all'} empty={reviewsEmpty(epic, picked, reviews.runs.some((one) => !one.archived), scope)} />}
             </main>
           )
         })()
@@ -258,7 +262,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
           {!board ? (
             <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the jobs…</p>
           ) : shownJobs.length === 0 ? (
-            <Empty view={view} epic={epic} picked={picked} any={jobs.some((job) => !job.archived)} />
+            <Empty view={jobsView} epic={epic} picked={picked} any={jobs.some((job) => !job.archived)} />
           ) : (
             <div className="flex min-h-full gap-2 p-2" data-testid="board">
               {COLUMNS.map((column) => {
@@ -270,7 +274,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
                       {column.label} {here.length ? <span className="font-normal">({here.length})</span> : null}
                     </h2>
                     {here.map((job) => (
-                      <Card key={job.id} job={job} selected={job.id === selected} showPlace={view === 'all'} onOpen={() => setSelected(job.id)} />
+                      <Card key={job.id} job={job} selected={job.id === selected} showPlace={jobsView === 'all'} onOpen={() => setSelected(job.id)} />
                     ))}
                   </section>
                 )
@@ -319,23 +323,25 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   )
 }
 
-function summary(jobs: readonly BoardJob[], view: View, epic: string | null, picked: readonly { id: string; heading: string }[], runs: readonly BoardRun[], questions: number): string {
+function summary(jobs: readonly BoardJob[], view: View, epic: string | null, picked: readonly { id: string; heading: string }[], runs: readonly BoardRun[], questions: number, scope: 'epic' | 'project'): string {
   if (view === 'reviews') {
     const waiting = runs.filter((run) => run.waiting !== null).length + questions
-    return `${scopeLine('Reviews', 'epic', epic, picked)}${waiting ? ` · ${waiting} waiting for you` : ''}`
+    return `${scopeLine('Reviews', 'epic', epic, picked, scope)}${waiting ? ` · ${waiting} waiting for you` : ''}`
   }
   const waiting = jobs.filter((job) => job.stage === 'waiting').length
-  return `${scopeLine('Jobs', view, epic, picked)}${waiting ? ` · ${waiting} waiting for you` : ''}`
+  return `${scopeLine('Jobs', view === 'all' ? 'all' : 'epic', epic, picked, scope)}${waiting ? ` · ${waiting} waiting for you` : ''}`
 }
 
 /** The empty Reviews board's words: no epic, the picked parts, or nothing reviewed yet. */
-export function reviewsEmpty(epic: string | null, picked: readonly { id: string; heading: string }[], any: boolean): string | undefined {
+export function reviewsEmpty(epic: string | null, picked: readonly { id: string; heading: string }[], any: boolean, scope: 'epic' | 'project' = 'epic'): string | undefined {
+  /* "All epics": the whole project, so an empty board is nothing reviewed yet. */
+  if (scope === 'project') return undefined
   if (!epic) return 'No epic is open. Open an epic to see its reviews.'
   if (!any) return undefined
   return picked.length ? `No review on ${epic} is in the picked ${picked.length === 1 ? 'part' : 'parts'}: ${partsWords(picked)}.` : `No review was started on ${epic}.`
 }
 
-function Empty({ view, epic, picked, any }: { view: View; epic: string | null; picked: readonly { id: string; heading: string }[]; any: boolean }) {
+function Empty({ view, epic, picked, any }: { view: 'epic' | 'all'; epic: string | null; picked: readonly { id: string; heading: string }[]; any: boolean }) {
   const line =
     view === 'epic' && !epic
       ? 'No epic is open. Switch the view to all jobs, or open an epic.'

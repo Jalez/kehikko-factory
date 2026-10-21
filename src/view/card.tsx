@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/badge'
-import { stageLine } from '@/board/columns'
+import { placeLabel, stageLine } from '@/board/columns'
 import type { BoardJob } from '@/wire/api'
 
-/** One job on the board. A button: pressing it opens the job's files. */
+/** One job on the board. A button: pressing it opens the job's files. With `showPlace`, it says its epic ("no epic" for one started elsewhere). */
 export function Card({ job, selected, showPlace, onOpen }: { job: BoardJob; selected: boolean; showPlace: boolean; onOpen(): void }) {
   const waiting = job.stage === 'waiting'
   const failed = job.stage === 'failed'
@@ -39,10 +39,9 @@ export function Card({ job, selected, showPlace, onOpen }: { job: BoardJob; sele
           {job.lately.line}
         </span>
       ) : null}
-      {showPlace && job.place?.epic ? (
-        <span className="truncate text-[0.65rem] text-[var(--muted-foreground)]">
-          {job.place.epic}
-          {job.place.parts?.length ? ` · ${job.place.parts.join(', ')}` : ''}
+      {showPlace ? (
+        <span className="truncate text-[0.65rem] text-[var(--muted-foreground)]" data-testid="place">
+          {placeLabel(job.place)}
         </span>
       ) : null}
       <span className="truncate font-mono text-[0.6rem] text-[var(--muted-foreground)]">
