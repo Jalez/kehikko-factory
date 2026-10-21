@@ -34,7 +34,13 @@ import { watchProject } from './watch.ts'
  *    `/api/skill/say` and `/api/skill/done` with no ticket: it is a curl in the person's terminal.
  *    It can start a job and move one it is running, one step at a time, and approve one when the
  *    person typed `/factory approve`. Every folder it names is asked of the host first.
- *  - **An agent** at `/mcp` reads. It cannot start, approve, merge or send back anything.
+ *  - **`/review-factory`**, typed by a person, talks to `/api/review/say` and `/api/review/done` the
+ *    same way: it starts a review and moves the one it is running, a step at a time. The page's
+ *    Reviews board reads `/api/review-board` and `/api/review-file` and presses `/api/review-act`
+ *    (settings, door and author rules, the checklist, angles, budget, stop), with the ticket.
+ *    `GET /api/reviews?change=…&projectPath=…` reads a change's reviews and their record, no ticket.
+ *  - **An agent** at `/mcp` reads. It cannot start, approve, merge or send back anything, nor start,
+ *    steer or send a review.
  *  - Anything else on this machine that found the port gets the health check, and the skill text.
  */
 
