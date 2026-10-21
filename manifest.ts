@@ -54,6 +54,12 @@ export const PREFERRED_PORT = 8040
  *
  * A job started from a conversation placed on parts of an epic belongs to those parts, and the
  * board narrows to the parts picked.
+ *
+ * ## `scopes: ['epic', 'project']`
+ *
+ * With "All epics" chosen in the host (`context.scope: 'project'`), the Jobs and Reviews boards show
+ * the whole project — every epic's items and those started on no epic — each card labelled with its
+ * epic, or "no epic".
  */
 export const DECLARED: Manifest = manifestSchema.parse({
   kind: MANIFEST_KIND,
@@ -86,6 +92,8 @@ export const DECLARED: Manifest = manifestSchema.parse({
     uses: ['activity:report', 'trackers:read', 'view:navigate'],
     storage: true,
     prompt: false,
+    /* "All epics" (protocol 2.9.0): both boards show every epic's jobs and reviews, each card labelled with its epic. */
+    scopes: ['epic', 'project'],
   },
   health: '/healthz',
 })

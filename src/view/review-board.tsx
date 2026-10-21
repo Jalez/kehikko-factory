@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { placeLabel } from '@/board/columns'
 import { checklistProgress, runLine, shownColumns } from '@/board/review-columns'
 import type { BoardRun, ReviewQuestion } from '@/wire/api'
 
@@ -7,7 +8,7 @@ import type { BoardRun, ReviewQuestion } from '@/wire/api'
  * card says the change, the step in a few words, the checklist's progress, whether it is one-way
  * and whether it touches what people see — in words, never by colour alone.
  */
-export function ReviewBoardView({ runs, questions, selected, onOpen, empty }: { runs: readonly BoardRun[]; questions: readonly ReviewQuestion[]; selected: string | null; onOpen(id: string): void; empty?: string }) {
+export function ReviewBoardView({ runs, questions, selected, onOpen, empty, showPlace = false }: { runs: readonly BoardRun[]; questions: readonly ReviewQuestion[]; selected: string | null; onOpen(id: string): void; empty?: string; showPlace?: boolean }) {
   const live = runs.filter((run) => !run.archived)
   if (!live.length && !questions.length) {
     return (
@@ -26,7 +27,7 @@ export function ReviewBoardView({ runs, questions, selected, onOpen, empty }: { 
               {column.label} {here.length ? <span className="font-normal">({here.length})</span> : null}
             </h2>
             {here.map((run) => (
-              <ReviewCard key={run.id} run={run} selected={run.id === selected} question={questions.find((one) => one.author === run.change.author?.login) ?? null} onOpen={() => onOpen(run.id)} />
+              <ReviewCard key={run.id} run={run} selected={run.id === selected} question={questions.find((one) => one.author === run.change.author?.login) ?? null} onOpen={() => onOpen(run.id)} showPlace={showPlace} />
             ))}
           </section>
         )
@@ -35,7 +36,7 @@ export function ReviewBoardView({ runs, questions, selected, onOpen, empty }: { 
   )
 }
 
-export function ReviewCard({ run, selected, question, onOpen }: { run: BoardRun; selected: boolean; question: ReviewQuestion | null; onOpen(): void }) {
+export function ReviewCard({ run, selected, question, onOpen, showPlace = false }: { run: BoardRun; selected: boolean; question: ReviewQuestion | null; onOpen(): void; showPlace?: boolean }) {
   const waiting = run.stage === 'waiting' || run.waiting !== null
   const progress = checklistProgress(run)
   return (
@@ -82,6 +83,12 @@ export function ReviewCard({ run, selected, question, onOpen }: { run: BoardRun;
       {run.lately?.line ? (
         <span className="truncate text-[0.65rem] text-[var(--muted-foreground)]" title={run.lately.line}>
           {run.lately.line}
+        </span>
+      ) : null}
+      {/* With more than one epic on the board, each card says which ("no epic" for one started elsewhere). */}
+      {showPlace ? (
+        <span className="truncate text-[0.65rem] text-[var(--muted-foreground)]" data-testid="place">
+          {placeLabel(run.place)}
         </span>
       ) : null}
       <span className="truncate font-mono text-[0.6rem] text-[var(--muted-foreground)]">

@@ -138,6 +138,38 @@ describe('the boards follow the picked parts', () => {
     expect(seen()).toEqual(['app-1-0001', 'app-2-0002', 'app-3-0003'])
   })
 
+  test('All epics in the host: both boards show every epic, unplaced included, each card labelled', async () => {
+    const press = { current: (_: { item: string; value?: string }) => undefined as unknown }
+    const unplaced = job('u-0006', { place: null })
+    render(<Screen host={host({ epic: null, scope: 'project', parts: [] })} api={fakeApi([...jobs, unplaced])} press={press as never} />)
+    await waitFor(() => screen.getByTestId('board'))
+    expect(shown()).toEqual(['w-0001', 'l-0002', 'q-0003', 'b-0004', 'e-0005'])
+    expect(screen.getByTestId('card-u-0006')).toBeTruthy()
+    expect(screen.getByTestId('summary').textContent).toBe('Jobs on all epics')
+    expect(screen.getByTestId('card-e-0005').textContent).toContain('other · loud')
+    expect(screen.getByTestId('card-w-0001').querySelector('[data-testid="place"]')?.textContent).toBe('greetings')
+    expect(screen.getByTestId('card-u-0006').querySelector('[data-testid="place"]')?.textContent).toBe('no epic')
+
+    const mk = (id: string, place: Run['place']) => ({ ...newRun({ id, change: CHANGE, session: null, place, now: '2026-10-21T12:00:00.000Z' }), files: [], lately: null }) as BoardRun
+    const runs = [mk('app-1-0001', { epic: 'greetings' }), mk('app-4-0004', { epic: 'other' }), mk('app-5-0005', null)]
+    const reviews: ReviewBoard = { root: '/work/app', runs, questions: [], settings: DEFAULT_REVIEW_SETTINGS }
+    cleanup()
+    render(<Screen host={host({ epic: null, scope: 'project', parts: [] })} api={{ ...fakeApi([]), reviews: async () => reviews }} press={press as never} />)
+    await react(async () => void press.current({ item: 'view', value: 'reviews' }))
+    await waitFor(() => screen.getByTestId('review-board'))
+    expect(runs.map((one) => one.id).filter((id) => screen.queryByTestId(`review-card-${id}`))).toEqual(['app-1-0001', 'app-4-0004', 'app-5-0005'])
+    expect(screen.getByTestId('summary').textContent).toBe('Reviews on all epics')
+    expect(screen.getByTestId('review-card-app-5-0005').querySelector('[data-testid="place"]')?.textContent).toBe('no epic')
+    expect(screen.getByTestId('review-card-app-4-0004').querySelector('[data-testid="place"]')?.textContent).toBe('other')
+  })
+
+  test('one epic again: the board narrows back and the cards say no epic', async () => {
+    render(<Screen host={host({ scope: 'epic', parts: [] })} api={fakeApi(jobs)} />)
+    await waitFor(() => screen.getByTestId('board'))
+    expect(shown()).toEqual(['w-0001', 'l-0002', 'q-0003', 'b-0004'])
+    expect(screen.queryByTestId('place')).toBeNull()
+  })
+
   test("two projects' jobs do not mix: each board is read for its own project path only", async () => {
     const byProject: Record<string, BoardJob[]> = { '/work/app': [job('a-0001')], '/work/other': [job('o-0001')] }
     const asked: string[] = []

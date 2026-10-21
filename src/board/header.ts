@@ -27,15 +27,17 @@ export function decisionRefusal(job: Job | null): string | null {
   return null
 }
 
-export function headerItems(view: View, selected: Job | null, busy: boolean, epic: string | null): HeaderItem[] {
+export function headerItems(view: View, selected: Job | null, busy: boolean, epic: string | null, scope: 'epic' | 'project' = 'epic'): HeaderItem[] {
   const refused = decisionRefusal(selected)
+  /* With the host on "All epics" the jobs board is the whole project either way: said, not hidden. */
+  const thisEpic = scope === 'project' ? 'All epics (the host’s)' : epic ? 'This epic' : 'This epic (none open)'
   return headerItemsSchema.parse([
     {
       kind: 'switch',
       id: 'view',
       label: 'Jobs',
       options: [
-        { id: 'epic', label: epic ? 'This epic' : 'This epic (none open)' },
+        { id: 'epic', label: thisEpic },
         { id: 'all', label: 'All jobs' },
         { id: 'reviews', label: 'Reviews' },
       ],

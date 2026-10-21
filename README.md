@@ -42,6 +42,9 @@ judgement, and the decision. The board follows the files as the agents write the
 
 Jobs belong where you started them: a conversation placed on an epic's parts puts its jobs there,
 and the board narrows with the parts you pick. View › All jobs shows the whole project.
+With **All epics** chosen in the host's epic picker, both the Jobs and the Reviews board show the
+whole project — every epic's items, and those started on no epic — each card labelled with its epic
+(or "no epic").
 
 A job waiting for you lands in Kehikot's Inbox at its place, and so does one that failed.
 
