@@ -44,3 +44,31 @@ describe('the /factory skill', () => {
     expect(skillAt('/kehikot/skills/other.md')).toBeNull()
   })
 })
+
+describe('the /review-factory skill', () => {
+  const review = skillTemplate('review-factory')!
+
+  test('is declared beside /factory, and passes skillTextIssue with the origin filled in', () => {
+    expect(skillDeclarations('http://127.0.0.1:8040').map((one) => one.name)).toEqual(['factory', 'review-factory'])
+    const text = skillText('review-factory', 'http://127.0.0.1:18041')!
+    expect(skillTextIssue(text, 'review-factory')).toBeNull()
+    expect(text).toContain('http://127.0.0.1:18041/api/review/say')
+    expect(text).not.toContain('{{origin}}')
+    expect(review).not.toMatch(/127\.0\.0\.1:\d/)
+    expect(skillAt(skillPath('review-factory'))?.name).toBe('review-factory')
+  })
+
+  test('only a person runs it, and it may run curl and echo without asking — nothing wider', () => {
+    const head = frontMatter(review)
+    expect(head).toContain('disable-model-invocation: true')
+    expect(/allowed-tools:\s*(.+)/.exec(head)![1]!.split(/,\s*/)).toEqual(['Bash(curl:*)', 'Bash(echo:*)'])
+    expect(head).not.toMatch(/Bash\(gh|Bash\(glab|Bash\(git|mcp__/)
+  })
+
+  test('its one ! line cannot fail, and the conductor is told it posts nothing', () => {
+    const bang = review.split('\n').find((line) => line.startsWith('!`'))!
+    expect(bang).toContain('--retry-connrefused')
+    expect(bang).toMatch(/\|\| echo "\[no answer from \{\{origin\}\}\]"`$/)
+    expect(review).toContain('Never post, approve, comment on, merge or close the change')
+  })
+})

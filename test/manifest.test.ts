@@ -11,10 +11,10 @@ describe('the manifest', () => {
     expect(moduleFolder(ID)).toBe('factory')
   })
 
-  test('follows the parts, reports to the Inbox, reads the boards, and offers the factory skill', () => {
+  test('follows the parts, reports to the Inbox, reads the boards, and offers the factory skills', () => {
     expect(MANIFEST.reacts).toEqual(['parts'])
     expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read'])
-    expect(MANIFEST.declares.skills?.map((one) => one.name)).toEqual(['factory'])
+    expect(MANIFEST.declares.skills?.map((one) => one.name)).toEqual(['factory', 'review-factory'])
     expect(MANIFEST.declares.storage).toBe(true)
   })
 

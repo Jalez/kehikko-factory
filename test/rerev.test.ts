@@ -71,11 +71,11 @@ describe('when to review again', () => {
 
   test('rules per author: this project over all projects; the question is asked once', () => {
     repo = scratchRepo()
-    expect(setRule(repo.root, 'alice', 'when they re-request review', true, '2026-10-21T12:00:00.000Z').ok).toBe(true)
-    expect(ruleFor(repo.root, 'alice')?.sentence).toBe('when they re-request review')
+    expect(setRule(repo.root, 'dora', 'when they re-request review', true, '2026-10-21T12:00:00.000Z').ok).toBe(true)
+    expect(ruleFor(repo.root, 'dora')?.sentence).toBe('when they re-request review')
     const machine = join(process.env.KEHIKOT_FACTORY_DIR!, 'author-rules.json')
     expect(existsSync(machine)).toBe(true)
-    expect(readFileSync(machine, 'utf8')).toContain('alice')
+    expect(readFileSync(machine, 'utf8')).toContain('dora')
     expect(setRule(repo.root, 'bob', 'whenever', false, 'x').ok).toBe(false)
     expect(ask(repo.root, { author: 'carol', ref: 'gh#7', url: CHANGE.url, run: 'app-7-a1b2', askedAt: 'x' })).toBe(true)
     expect(ask(repo.root, { author: 'carol', ref: 'gh#8', url: CHANGE.url, run: 'app-8-a1b2', askedAt: 'x' })).toBe(false)

@@ -23,9 +23,13 @@ async function rpc(method: string, params: Record<string, unknown> = {}) {
 }
 
 describe('the doors', () => {
-  test('the agent door only reads: two read-only tools, and nothing that merges, approves or starts', async () => {
+  test('the agent door only reads: four read-only tools, and nothing that merges, approves, starts or sends', async () => {
     const tools = (await rpc('tools/list')).result.tools!
-    expect(tools.map((one) => one.name)).toEqual(['jobs', 'job'])
+    expect(tools.map((one) => one.name)).toEqual(['jobs', 'job', 'reviews', 'review'])
+    for (const name of ['send_review', 'accept_checklist', 'review_settings']) {
+      const refused = await rpc('tools/call', { name, arguments: { project: repo.root } })
+      expect(refused.result.isError).toBe(true)
+    }
     expect(tools.every((one) => one.annotations.readOnlyHint)).toBe(true)
     const merge = await rpc('tools/call', { name: 'approve', arguments: { project: repo.root } })
     expect(merge.result.isError).toBe(true)
@@ -70,6 +74,22 @@ describe('the doors', () => {
     expect(text).not.toContain('Make the greeting shout\n')
     expect(text).not.toContain('feature')
     expect(text).not.toContain('history')
+  })
+
+  test('the reviews: the skill\'s doors answer in plain text; the board and its presses want the ticket; the record reads without one, project-checked', async () => {
+    const said = await answer('POST', '/api/review/say', q({ session: 'session-1234-abcd', say: 'help', cwd: repo.root }), null, null)
+    expect(String(said?.raw?.bytes)).toContain('/review-factory status')
+    expect((await answer('GET', '/api/review-board', q({ projectPath: repo.root }), null, null))?.status).toBe(403)
+    expect((await answer('POST', '/api/review-act', q(), { projectPath: repo.root, act: 'review-settings', settings: { postTwoWay: true } }, null))?.status).toBe(403)
+    const board = await answer('GET', '/api/review-board', q({ projectPath: repo.root }), null, TICKET)
+    expect(board?.body).toMatchObject({ runs: [], questions: [], settings: { postTwoWay: false } })
+    expect((await answer('POST', '/api/review-act', q(), { projectPath: repo.root, act: 'review-settings', settings: { postTwoWay: true } }, TICKET))?.status).toBe(200)
+    const reviews = await answer('GET', '/api/reviews', q({ change: 'https://github.com/me/app/pull/7', projectPath: repo.root }), null, null)
+    expect(reviews?.body).toEqual({ reviews: [] })
+    expect((await answer('GET', '/api/reviews', q({ change: 'https://github.com/me/app/pull/7', projectPath: '/etc' }), null, null))?.status).toBe(403)
+    expect((await answer('POST', '/api/reviews', q({ change: 'x', projectPath: repo.root }), null, null))?.status).toBe(405)
+    const skill = await answer('GET', '/kehikot/skills/review-factory.md', q(), null, null)
+    expect(String(skill?.raw?.bytes)).toContain('name: review-factory')
   })
 
   test('a path that is not ours is left to Vite', async () => {
