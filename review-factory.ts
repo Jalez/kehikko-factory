@@ -117,14 +117,30 @@ function kehikkoCheck(root: string, session: string): { ok: true; kehikko: strin
       why: 'this conversation is not placed on a kehikko in Kehikot, so there is no Factory to run a review. Start the conversation from a kehikko that has the Factory module on it.',
     }
   }
-  const seen = readSeen(root).kehikkos[place.kehikko]
-  if (!seen || !seen.modules.includes(FACTORY_ID)) {
-    return {
-      ok: false,
-      why: 'this conversation\'s kehikko has no Factory container, so /review-factory is not offered there. Put Factory on that kehikko (and open it once), then try again.',
-    }
-  }
+  const missing = missingForReview(readSeen(root).kehikkos[place.kehikko]?.modules ?? [])
+  if (missing.length) return { ok: false, why: missingSaid(missing) }
   return { ok: true, kehikko: place.kehikko, place }
+}
+
+/**
+ * What /review-factory needs on its kehikko: Review, which it drafts into, and Factory, whose page
+ * saw the kehikko (`seen.modules`). The skill declares Review in `needs` (skills.ts), so the Claude
+ * module leaves it out of a conversation on a kehikko without Review; this is the same rule at run
+ * time, for a conversation that outlived its kehikko's arrangement.
+ */
+const REVIEW_NEEDS = [
+  { id: REVIEW, name: 'Review' },
+  { id: FACTORY_ID, name: 'Factory' },
+] as const
+
+export function missingForReview(modules: readonly string[]): string[] {
+  return REVIEW_NEEDS.filter((one) => !modules.includes(one.id)).map((one) => one.name)
+}
+
+/** "/review-factory needs Review and Factory on this kehikko; Review is missing." and what to do. */
+export function missingSaid(missing: readonly string[]): string {
+  const names = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)} are` : `${missing[0]} is`
+  return `/review-factory needs Review and Factory on this kehikko; ${names} missing.\nPut ${missing.join(' and ')} on that kehikko${missing.includes('Factory') ? ' (and open Factory there once)' : ''}, then try again.`
 }
 
 const modulesOn = (root: string, kehikko: string | undefined): string[] => (kehikko ? readSeen(root).kehikkos[kehikko]?.modules ?? [] : [])

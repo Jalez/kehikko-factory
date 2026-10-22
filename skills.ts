@@ -6,6 +6,7 @@ import { skillPath, skillTextIssue, type ModuleSkill } from 'kehikot-module-prot
 import { originFor, preferred } from 'kehikot-module-protocol/serve'
 
 import { PREFERRED_PORT } from './manifest.ts'
+import { REVIEW } from './rev/neighbours.ts'
 
 /**
  * The Claude Code skills this module offers (protocol 2.5.0, `declares.skills`): `/factory` and
@@ -23,6 +24,12 @@ import { PREFERRED_PORT } from './manifest.ts'
  * A skill a person installs is user-level: it cannot ship agent files. So the skill is the
  * orchestrator — the conversation it runs in starts each subagent with a prompt given inline — and
  * the prompts come from this module, one step at a time (job/steps.ts).
+ *
+ * `/review-factory` is kehikko-bound (protocol 2.12.0, `needs`): it drafts into Review, so it
+ * makes sense only on a kehikko that has Review as well as Factory. A host never installs it
+ * for every conversation; the Claude module loads it into a conversation whose kehikko has both,
+ * and the skill checks again at run time (`kehikkoCheck` in review-factory.ts). `/factory` needs
+ * nothing beside Factory and stays unbound.
  */
 
 export const PLUGIN_DIR = join(import.meta.dirname, 'plugin')
@@ -39,8 +46,9 @@ const OFFERED = [
     name: 'review-factory',
     summary:
       'Type /review-factory on a pull or merge request: two chosen angles, two reviewers, an adversary and a judge, the checklist to the letter, and a draft in Review you send yourself.',
+    needs: [REVIEW],
   },
-] as const
+] as const satisfies readonly { name: string; summary: string; needs?: readonly string[] }[]
 
 const LOOPBACK_ORIGIN = /^http:\/\/127\.0\.0\.1:\d{1,5}$/
 
@@ -74,7 +82,12 @@ export function skillText(name: string, origin = served): string | null {
 }
 
 export function skillDeclarations(origin = served): ModuleSkill[] {
-  return OFFERED.map((one) => ({ name: one.name, summary: one.summary, version: fill(skillTemplate(one.name)!, origin).version }))
+  return OFFERED.map((one) => ({
+    name: one.name,
+    summary: one.summary,
+    version: fill(skillTemplate(one.name)!, origin).version,
+    ...('needs' in one ? { needs: [...one.needs] } : {}),
+  }))
 }
 
 /** The skill a path asks for, or null for a path that is not one of ours (or text that would not pass). */
