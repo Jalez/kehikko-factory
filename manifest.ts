@@ -68,6 +68,9 @@ export const DECLARED: Manifest = manifestSchema.parse({
   protocol: PROTOCOL,
   id: ID,
   name: 'Factory',
+  /* The icon a host draws beside the name: a key of the protocol's module icons, never a path
+     or URL; the same key Kehikot's official list gives it. */
+  icon: 'lucide:factory',
   version: VERSION,
   dataVersion: 1,
   summary: 'A software factory on your kehikko: builds judged by a panel of agents, and /review-factory for accurate, transparent reviews of pull and merge requests.',
