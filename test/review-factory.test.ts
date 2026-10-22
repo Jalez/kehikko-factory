@@ -3,7 +3,7 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { git } from '../git.ts'
-import { actReview, doneReview, pageRows, pageSaw, sayReview, type ReviewNeeds } from '../review-factory.ts'
+import { actReview, doneReview, missingForReview, missingSaid, pageRows, pageSaw, sayReview, type ReviewNeeds } from '../review-factory.ts'
 import { readRun, recordFiles, listRuns, writeRun } from '../rev/store.ts'
 import { CHECKLIST, REVIEW, type Neighbours } from '../rev/neighbours.ts'
 import type { Run } from '../rev/shape.ts'
@@ -126,13 +126,34 @@ async function runToRest(needs: ReviewNeeds, root: string, opts: Parameters<type
 describe('/review-factory refuses, in plain words', () => {
   test('a conversation on no kehikko, a kehikko without Factory, no change, and an issue', async () => {
     const { root, needs } = setUp({ modules: [REVIEW] })
-    expect(await say(needs, root)).toContain('has no Factory container')
-    pageSaw(root, { kehikko: 'k1', modules: ['kehikot.factory'], selection: [] })
+    expect(await say(needs, root)).toContain('/review-factory needs Review and Factory on this kehikko; Factory is missing.')
+    pageSaw(root, { kehikko: 'k1', modules: ['kehikot.factory', REVIEW], selection: [] })
     expect(await say(needs, root)).toContain('no pull or merge request is selected')
     expect(await say(needs, root, 'https://github.com/me/app/issues/3')).toContain('an issue, not a change')
     const other = await sayReview({ session: 'session-elsewhere-01', say: '', cwd: root }, needs)
     expect(other).toContain('not placed on a kehikko')
     expect(listRuns(root)).toEqual([])
+  })
+})
+
+describe('/review-factory needs Review and Factory on its kehikko', () => {
+  test('a kehikko without Review: refused, naming Review, and no review is started', async () => {
+    const { root, needs } = setUp({ modules: ['kehikot.factory', CHECKLIST] })
+    const said = await say(needs, root)
+    expect(said).toContain('/review-factory needs Review and Factory on this kehikko; Review is missing.')
+    expect(said).toContain('Put Review on that kehikko, then try again.')
+    expect(listRuns(root)).toEqual([])
+  })
+
+  test('a kehikko with neither: both named', async () => {
+    const { root, needs } = setUp({ modules: [CHECKLIST] })
+    expect(await say(needs, root)).toContain('/review-factory needs Review and Factory on this kehikko; Review and Factory are missing.')
+  })
+
+  test('the words, on their own', () => {
+    expect(missingForReview(['kehikot.factory', REVIEW])).toEqual([])
+    expect(missingForReview(['kehikot.factory'])).toEqual(['Review'])
+    expect(missingSaid(['Review']).split('\n')[0]).toBe('/review-factory needs Review and Factory on this kehikko; Review is missing.')
   })
 })
 

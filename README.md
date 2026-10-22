@@ -77,8 +77,9 @@ job: those are yours.
 /review-factory https://github.com/you/app/pull/42
 ```
 
-Or select the change on the canvas and type just `/review-factory`. It is offered on a kehikko that
-has Factory on it, and it reviews pull and merge requests only — to review your own work first, open
+Or select the change on the canvas and type just `/review-factory`. It is offered only in a
+conversation on a kehikko that has both Review and Factory on it (it drafts into Review), and says
+which is missing if you type it elsewhere. It reviews pull and merge requests only — to review your own work first, open
 a draft.
 
 A panel works on it, and Factory checks every step:
@@ -146,8 +147,9 @@ steer or send a review.
 
 ## Getting it
 
-Install Factory from Kehikot's module list, then install the `/factory` and `/review-factory`
-skills from the Skills window.
+Install Factory from Kehikot's module list, then install the `/factory` skill from the Skills
+window. `/review-factory` is not installed for every conversation: a conversation started from a
+kehikko with Review and Factory on it has it.
 
 Everything Factory keeps is in your project under `.kehikot/factory/` (reviews under
 `.kehikot/factory/reviews/<id>/`); the code it builds sits in `../<project>-factory/<job>/` until it

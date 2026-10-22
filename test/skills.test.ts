@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { skillPath, skillTextIssue } from 'kehikot-module-protocol'
+import { isKehikkoBound, moduleSkillsSchema, skillPath, skillTextIssue } from 'kehikot-module-protocol'
 
 import { fill, skillAt, skillDeclarations, skillTemplate, skillText } from '../skills.ts'
 
@@ -47,6 +47,15 @@ describe('the /factory skill', () => {
 
 describe('the /review-factory skill', () => {
   const review = skillTemplate('review-factory')!
+
+  test('is kehikko-bound: it needs Review on the kehikko; /factory needs nothing', () => {
+    const [factory, review] = skillDeclarations('http://127.0.0.1:8040')
+    expect(review).toMatchObject({ name: 'review-factory', needs: ['kehikot.review'] })
+    expect(isKehikkoBound(review!)).toBe(true)
+    expect('needs' in factory!).toBe(false)
+    expect(isKehikkoBound(factory!)).toBe(false)
+    expect(moduleSkillsSchema.safeParse(skillDeclarations('http://127.0.0.1:8040')).success).toBe(true)
+  })
 
   test('is declared beside /factory, and passes skillTextIssue with the origin filled in', () => {
     expect(skillDeclarations('http://127.0.0.1:8040').map((one) => one.name)).toEqual(['factory', 'review-factory'])
