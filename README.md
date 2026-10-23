@@ -56,6 +56,25 @@ you confirm it, and any stage can map to *no column*. From then on, as a job cha
 conversation running it moves the job's issue with your own `gh` or `glab`. A job without an issue
 can get one (`/factory issue <job> new`) or stay on the Factory board.
 
+## Settings in Kehikot
+
+Factory's switches and rules for a project are also in Kehikot itself: the gear on Factory's
+container, "Settings…" in its Frame menu, and Settings › Modules. They are the same
+`.kehikot/factory/settings.json` the board's own controls change, in the same format, and Factory
+is the one that writes it:
+
+| Setting | Type |
+| --- | --- |
+| Let the judge merge approved jobs by itself | switch |
+| Post two-way reviews by myself | switch |
+| Re-review by myself | switch |
+| Reviewers may run this project's tests | switch |
+| Ready for another review (the default signal) | text |
+| Door rules — one a line, `path migrations/ → one-way` or `label two-way → two-way` | list |
+
+Every one of them is yours alone: an agent asking to change one is refused. The mapping onto your
+own board stays on the board's settings.
+
 ## Commands
 
 | Typed in Claude Code | What happens |
