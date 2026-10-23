@@ -16,5 +16,5 @@
     "baseUrl": ".",
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "test", "job", "review", "rev", "review-factory.ts", "machine.ts", "plugin", "manifest.ts", "doors.ts", "store.ts", "register.ts", "vite.config.ts", "factory.ts", "git.ts", "place.ts", "skills.ts", "transcript.ts", "watch.ts", "host-ask.ts"]
+  "include": ["src", "test", "job", "review", "rev", "review-factory.ts", "machine.ts", "plugin", "manifest.ts", "doors.ts", "store.ts", "register.ts", "serve.ts", "build.ts", "vite.config.ts", "factory.ts", "git.ts", "place.ts", "skills.ts", "transcript.ts", "watch.ts", "host-ask.ts"]
 }
