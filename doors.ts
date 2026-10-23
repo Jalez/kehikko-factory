@@ -1,5 +1,5 @@
 import { DOOR_PROJECT_SAYS, KEHIKOT_DIR, doorContext, manifestSchema, type Manifest } from 'kehikot-module-protocol'
-import { establishBuild, mintTicket, refuseTicket, sameTicket, type Reply, type Stream } from 'kehikot-module-protocol/serve'
+import { establishBuild, hostVouches, mintTicket, refuseTicket, sameTicket, settingsDoor, type Reply, type Stream } from 'kehikot-module-protocol/serve'
 
 import { act, done, linkIssue, moveFailedFor, published, realNeeds, say, withMoves, type Act, type Needs } from './factory.ts'
 import { actReview, doneReview, publishedRun, recordOf, reviewBoard, reviewKey, sayReview, type ReviewAct, type ReviewNeeds } from './review-factory.ts'
@@ -15,7 +15,8 @@ import { describeStage, isRunning } from './job/flow.ts'
 import type { Job } from './job/shape.ts'
 import { DECLARED, ID, VERSION } from './manifest.ts'
 import { serveFrom, servedOrigin, skillAt, skillDeclarations } from './skills.ts'
-import { jobFiles, listJobs, projectRoot, readJob, readJobFile, readQueue, readSettings } from './store.ts'
+import { jobFiles, listJobs, projectRoot, readJob, readJobFile, readJson, readQueue, readSettings, writeSettings } from './store.ts'
+import { SETTINGS, SETTINGS_FILE, valuesOf, withValue } from './settings.ts'
 import { lately } from './transcript.ts'
 import { watchProject } from './watch.ts'
 
@@ -81,6 +82,39 @@ async function held(folder: string): Promise<{ ok: true; path: string; movedFrom
   if (!root.ok) return { ok: false, why: root.error }
   return { ok: true, path: root.value, ...(project.movedFrom ? { movedFrom: project.movedFrom } : {}) }
 }
+
+/**
+ * The project's settings at the module's door (protocol 2.15.0): `settings.get` and `settings.set`
+ * at `/api/kehikot/settings`, for the host's Settings and its gear on the container. The same file
+ * and format the board's own controls write. Every setting is the person's: a change is taken only
+ * with the page's ticket or a pass the host vouches for, asked of the origins the host started
+ * this module with (`KEHIKOT_ORIGINS`) and never of an address a request names.
+ */
+const settings = settingsDoor({
+  module: ID,
+  fields: SETTINGS,
+  ticket: TICKET,
+  vouch: (pass, about) => hostVouches(pass, about, { env: process.env }),
+  read: async (project) => {
+    if (!project) return { values: {}, problem: DOOR_PROJECT_SAYS.unnamed }
+    const root = await held(project)
+    if (!root.ok) return { values: {}, problem: root.why }
+    const raw = readJson(root.path, 'settings')
+    return { values: valuesOf(readSettings(root.path)), file: SETTINGS_FILE, ...(raw.ok ? {} : { problem: raw.error }) }
+  },
+  write: async (project, key, value) => {
+    if (!project) return DOOR_PROJECT_SAYS.unnamed
+    const root = await held(project)
+    if (!root.ok) return root.why
+    /* A file that does not read is not overwritten with the defaults. */
+    const raw = readJson(root.path, 'settings')
+    if (!raw.ok) return raw.error
+    const changed = withValue(readSettings(root.path), key, value)
+    if (!changed.ok) return changed.why
+    const written = writeSettings(root.path, changed.settings)
+    return written.ok ? null : written.error
+  },
+})
 
 let needsFor: () => Needs = () => realNeeds(held, servedOrigin)
 /** For tests: what the factory is given (a clock, an id suffix, the host's word). */
@@ -299,6 +333,10 @@ export async function answer(
     if (!body || typeof body.method !== 'string') return { status: 400, body: { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'not a request' } } }
     return mcp(body as Rpc)
   }
+
+  /* Settings, for the host (protocol 2.15.0): before the page's ticket rule, which it keeps itself. */
+  const said = await settings(method, path, query, body, ticket)
+  if (said) return said
 
   /* The skill this module offers (protocol 2.5.0): its SKILL.md, as text. Public: a host shows it. */
   const skill = skillAt(path)

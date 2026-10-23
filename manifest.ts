@@ -1,5 +1,6 @@
 import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 import pkg from './package.json'
+import { SETTINGS } from './settings.ts'
 
 export const ID = 'kehikot.factory'
 /** The module's version: package.json's, the one place it is written. A release is tagged with it. */
@@ -57,6 +58,12 @@ export const PREFERRED_PORT = 8040
  * A job started from a conversation placed on parts of an epic belongs to those parts, and the
  * board narrows to the parts picked.
  *
+ * ## `declares.settings`
+ *
+ * The judge-merge switch, the review switches and the door rules, in the host's Settings and behind
+ * a gear on the container (protocol 2.15.0), read and written here at `/api/kehikot/settings`, in
+ * the same `.kehikot/factory/settings.json`. Every one is the person's: an agent is refused.
+ *
  * ## `scopes: ['epic', 'project']`
  *
  * With "All epics" chosen in the host (`context.scope: 'project'`), the Jobs and Reviews boards show
@@ -99,6 +106,8 @@ export const DECLARED: Manifest = manifestSchema.parse({
     prompt: false,
     /* "All epics" (protocol 2.9.0): both boards show every epic's jobs and reviews, each card labelled with its epic. */
     scopes: ['epic', 'project'],
+    /* The person's switches and rules, shown and changed in the host's Settings too (protocol 2.15.0). See `settings.ts`. */
+    settings: SETTINGS,
   },
   health: '/healthz',
 })
