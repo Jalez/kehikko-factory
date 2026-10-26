@@ -1,17 +1,17 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs'
+import { readTrackerRef, type ServerMethod } from 'kehikot-module-protocol'
+import { askHost, type AskedHost } from 'kehikot-module-protocol/serve'
 
-import { hostFile, legacyHostFile, readTrackerRef, within } from 'kehikot-module-protocol'
-import { readJourney, readJourneys } from 'kehikot-module-protocol/serve'
-
+import { ID } from '../manifest.ts'
 import type { Remote } from '../tracker.ts'
 import type { Target } from './forge.ts'
 
 /**
  * The vision a change is judged against: the epic that holds its ref — its title, lede, callout,
- * parts — and, from Journeys, the goal, how we'll know, the appetite, the rabbit holes and the
- * no-gos when they are written. Read from the host's folder (`.kehikot/host/epics/`, which a module
- * may read and never writes; the pre-2.2 `.kehikot/kehikko/` as a fallback) and from Journeys' file
- * through the protocol's reader. Read only.
+ * parts — and the goal and how we'll know from whichever module keeps its steps, with the appetite,
+ * the rabbit holes and the no-gos when the epic's material says them. Asked of the host by this
+ * module's server (protocol 2.21.0, `askHost`): `epics.list` and `epic.get` (`epics:read`),
+ * `steps.list` (`steps:read`) and `parts.get` (`parts:read`), the answers this module's page would
+ * get. No file of the host's or of another module's is read, so it works with no page open.
  */
 
 export interface Vision {
@@ -27,43 +27,40 @@ export interface Vision {
   noGos?: string[]
 }
 
-const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/
+/** One question to the host about one project: `askHost`, or a stand-in in the tests. */
+export type HostAsk = <M extends ServerMethod>(method: M, params: Record<string, unknown>, project: string) => Promise<AskedHost<M>>
 
-function readEpic(root: string, file: string): Record<string, unknown> | null {
-  try {
-    if (!existsSync(file) || !within(realpathSync(root), realpathSync(file))) return null
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null
-  } catch {
-    return null
-  }
-}
-
-function epicSlugs(root: string): string[] {
-  const out = new Set<string>()
-  for (const dir of [hostFile(root, 'epics'), legacyHostFile(root, 'epics')]) {
-    if (!dir || !existsSync(dir)) continue
-    for (const name of readdirSync(dir)) if (name.endsWith('.json') && SLUG.test(name.slice(0, -5))) out.add(name.slice(0, -5))
-  }
-  for (const slug of Object.keys(((readJourneys(root) as { journeys?: Record<string, unknown> } | null)?.journeys ?? {}))) if (SLUG.test(slug)) out.add(slug)
-  return [...out].sort()
-}
-
-function hostEpic(root: string, slug: string): Record<string, unknown> | null {
-  return readEpic(root, hostFile(root, 'epics', `${slug}.json`)!) ?? readEpic(root, legacyHostFile(root, 'epics', `${slug}.json`)!)
-}
+/** The real one: this module asks, about the project it names. */
+export const askTheHost: HostAsk = (method, params, project) => askHost(method, params, { module: ID, project })
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((one): one is string => typeof one === 'string') : [])
 
-/** Every ref an epic names: its umbrella, its steps', its parts' and its journey's. */
-function refsOf(epic: Record<string, unknown> | null, journey: Record<string, unknown> | null): string[] {
+/** What the host says of one epic: its material (`epic.get`), its steps (`steps.list`) and its parts (`parts.get`), each null when not answered. */
+interface Said {
+  epic: Record<string, unknown> | null
+  steps: { refs?: unknown; related?: unknown }[]
+  providers: { goal?: string; measure?: string }[]
+  parts: { heading: string; refs: string[] }[]
+}
+
+async function said(ask: HostAsk, root: string, slug: string): Promise<Said> {
+  const [epic, steps, parts] = await Promise.all([ask('epic.get', { epic: slug }, root), ask('steps.list', { epic: slug }, root), ask('parts.get', { epic: slug }, root)])
+  return {
+    epic: epic.ok && epic.data && typeof epic.data === 'object' ? epic.data : null,
+    steps: steps.ok ? (steps.data.steps ?? []) : [],
+    providers: steps.ok ? (steps.data.providers ?? []) : [],
+    parts: parts.ok ? parts.data.parts : [],
+  }
+}
+
+/** Every ref an epic names: its umbrella, its steps' (delivering and related), its parts' and the groups its material lists. */
+function refsOf(one: Said): string[] {
   const out: string[] = []
-  for (const source of [epic, journey]) {
-    if (!source) continue
-    if (typeof source.umbrella === 'string') out.push(source.umbrella)
-    for (const key of ['steps', 'groups', 'parts']) {
-      for (const one of Array.isArray(source[key]) ? (source[key] as Record<string, unknown>[]) : []) out.push(...strings(one?.refs))
-    }
+  if (typeof one.epic?.umbrella === 'string') out.push(one.epic.umbrella)
+  for (const step of one.steps) out.push(...strings(step.refs), ...strings(step.related))
+  for (const part of one.parts) out.push(...part.refs)
+  for (const key of ['steps', 'groups']) {
+    for (const entry of Array.isArray(one.epic?.[key]) ? (one.epic[key] as Record<string, unknown>[]) : []) out.push(...strings(entry?.refs))
   }
   return out
 }
@@ -76,26 +73,33 @@ export function namesChange(ref: string, target: Target, origin: Remote | null):
   return repo === target.repo
 }
 
-/** The slug of the epic that holds the change's ref, or null. */
-export function epicOf(root: string, target: Target, origin: Remote | null): string | null {
-  for (const slug of epicSlugs(root)) {
-    const refs = refsOf(hostEpic(root, slug), readJourney(root, slug) as Record<string, unknown> | null)
-    if (refs.some((ref) => namesChange(ref, target, origin))) return slug
+/** The slug of the epic that holds the change's ref, or null: the project's epics, in the host's order, asked one by one. */
+export async function epicOf(root: string, target: Target, origin: Remote | null, ask: HostAsk = askTheHost): Promise<string | null> {
+  const listed = await ask('epics.list', {}, root)
+  if (!listed.ok) return null
+  for (const { slug } of listed.data.epics) {
+    if (refsOf(await said(ask, root, slug)).some((ref) => namesChange(ref, target, origin))) return slug
   }
   return null
 }
 
 const text = (value: unknown, max = 2000): string => (typeof value === 'string' ? value.slice(0, max) : '')
 
-export function visionOf(root: string, slug: string): Vision | null {
-  const epic = hostEpic(root, slug)
-  const journey = readJourney(root, slug) as Record<string, unknown> | null
-  if (!epic && !journey) return null
-  const pick = (key: string) => text(epic?.[key]) || text(journey?.[key])
-  const parts = [...strings((epic?.parts as { name?: unknown }[] | undefined)?.map((one) => one?.name)), ...strings((journey?.groups as { heading?: unknown }[] | undefined)?.map((one) => one?.heading))]
+/** The vision of one epic, or null when the host has no such epic (or no host answered). */
+export async function visionOf(root: string, slug: string, ask: HostAsk = askTheHost): Promise<Vision | null> {
+  const one = await said(ask, root, slug)
+  const epic = one.epic
+  if (!epic) return null
+  const pick = (key: string) => text(epic[key])
+  const parts = strings(one.parts.map((part) => part.heading).filter(Boolean))
   const vision: Vision = { epic: slug, title: pick('title') || slug, lede: pick('lede'), callout: pick('callout'), parts: [...new Set(parts)].slice(0, 40) }
-  for (const key of ['goal', 'measure', 'appetite'] as const) if (text(journey?.[key])) vision[key] = text(journey?.[key])
-  for (const key of ['rabbitHoles', 'noGos'] as const) if (strings(journey?.[key]).length) vision[key] = strings(journey?.[key]).slice(0, 20)
+  /* The goal and how we'll know: the first steps provider's that says them, else the epic's own words. */
+  const goal = one.providers.find((provider) => provider.goal)?.goal ?? text(epic.goal)
+  const measure = one.providers.find((provider) => provider.measure)?.measure ?? text(epic.measure)
+  if (goal) vision.goal = text(goal)
+  if (measure) vision.measure = text(measure)
+  if (text(epic.appetite)) vision.appetite = text(epic.appetite)
+  for (const key of ['rabbitHoles', 'noGos'] as const) if (strings(epic[key]).length) vision[key] = strings(epic[key]).slice(0, 20)
   return vision
 }
 

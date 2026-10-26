@@ -101,7 +101,10 @@ export const DECLARED: Manifest = manifestSchema.parse({
   reacts: ['parts'],
   declares: {
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
-    uses: ['activity:report', 'trackers:read', 'view:navigate'],
+    /* `epics:read`, `steps:read` and `parts:read` (protocol 2.21.0): a review weighs a change
+       against its epic's vision, which this server asks the host for (`rev/vision.ts`) rather than
+       reading the host's files or Journeys'. */
+    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read'],
     storage: true,
     prompt: false,
     /* "All epics" (protocol 2.9.0): both boards show every epic's jobs and reviews, each card labelled with its epic. */

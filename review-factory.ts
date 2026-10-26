@@ -23,7 +23,7 @@ import { due, needsComments, parseRule } from './rev/rerev.ts'
 import { DEFAULT_REVIEW_SETTINGS, doorRuleSchema, MAX_ROUNDS, reviewSettingsSchema, type Change, type ReviewSettings, type Run, type RunAngle, type RunChecklist } from './rev/shape.ts'
 import { agentsFor, instructRun, itemsOf } from './rev/steps.ts'
 import { listRuns, makeRunDir, readRecord, readRun, readSeen, recordFiles, writeJsonFile, writeRecord, writeRun, writeSeen } from './rev/store.ts'
-import { epicOf, visionOf, visionText } from './rev/vision.ts'
+import { epicOf, visionOf, visionText, type HostAsk } from './rev/vision.ts'
 import { placeOfSession } from './place.ts'
 import { readSettings, writeSettings, type Result } from './store.ts'
 import type { Remote, Run as CliRun } from './tracker.ts'
@@ -55,6 +55,8 @@ export interface ReviewNeeds {
   key(): string | null
   /** Claude Code's folder, for reading what a review spent. */
   claudeDir?: string
+  /** How this server asks the host about the project (`askHost`); the real one when absent. */
+  ask?: HostAsk
 }
 
 export const reviewKey = (): string | null => readFactoryKey()
@@ -293,8 +295,8 @@ export async function gather(root: string, run0: Run, meta: Meta, needs: ReviewN
   const sum = totals(files)
   const budget = run.budget ?? sizeBudget(sum.files, sum.added + sum.removed)
 
-  const slugOf = epicOf(root, target, remote)
-  const vision = slugOf ? visionOf(root, slugOf) : null
+  const slugOf = await epicOf(root, target, remote, needs.ask)
+  const vision = slugOf ? await visionOf(root, slugOf, needs.ask) : null
 
   let checklists: RunChecklist[] = []
   const notes: string[] = []

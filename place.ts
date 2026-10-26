@@ -9,6 +9,10 @@ import type { JobPlace } from './job/shape.ts'
  * its record in the project (`<project>/.kehikot/claude/places.json`). Read only — that file is the
  * Claude module's, and this module never writes it. A conversation listed under no place, or under
  * several with none of them holding it as current, is unplaced: never guessed from what is on screen.
+ *
+ * Still the Claude module's file and not the host's place record: protocol 2.21.0 lets a module's
+ * server ask for an epic, its steps and its parts (`askHost`), but not for which place a
+ * conversation is filed under. When `SERVER_METHODS` carries it, this asks instead.
  */
 
 const CLAUDE_ID = 'kehikot.claude'
