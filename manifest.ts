@@ -64,11 +64,14 @@ export const PREFERRED_PORT = 8040
  * a gear on the container (protocol 2.15.0), read and written here at `/api/kehikot/settings`, in
  * the same `.kehikot/factory/settings.json`. Every one is the person's: an agent is refused.
  *
- * ## `scopes: ['epic', 'project']`
+ * ## Two scopes: the open epic, or the whole project
  *
- * With "All epics" chosen in the host (`context.scope: 'project'`), the Jobs and Reviews boards show
- * the whole project — every epic's items and those started on no epic — each card labelled with its
- * epic, or "no epic".
+ * Two modes (protocol 2.29.0): `epic` by default, and `project`, which the person picks per
+ * container in the host's settings window — or gets on "All epics". At `project`
+ * (`context.scope: 'project'`) the Jobs and Reviews boards show the whole project — every epic's
+ * items and those started on no epic — each card labelled with its epic, or "no epic". The header's
+ * View switches only between the boards: its old "All jobs" was this same choice, and is gone so
+ * there is one setting, not two. `declares.scopes` says the same to a host before 2.29.0.
  */
 export const DECLARED: Manifest = manifestSchema.parse({
   kind: MANIFEST_KIND,
@@ -91,7 +94,11 @@ export const DECLARED: Manifest = manifestSchema.parse({
     + 'into Review: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
     + 'steer or send a review.',
   entry: '/app',
-  modes: [{ id: 'board', label: 'Factory', scope: 'epic' }],
+  /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
+  modes: [
+    { id: 'board', label: 'Factory', scope: 'epic', scopeSays: 'the open epic’s jobs and reviews' },
+    { id: 'all', label: 'All epics', scope: 'project', scopeSays: 'every epic’s jobs and reviews in this project, each card labelled with its epic' },
+  ],
   mcp: {
     url: '/mcp',
     transport: 'http',
@@ -107,7 +114,7 @@ export const DECLARED: Manifest = manifestSchema.parse({
     uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read'],
     storage: true,
     prompt: false,
-    /* "All epics" (protocol 2.9.0): both boards show every epic's jobs and reviews, each card labelled with its epic. */
+    /* "All epics" (protocol 2.9.0), for a host before the `project` mode above (2.29.0). */
     scopes: ['epic', 'project'],
     /* The person's switches and rules, shown and changed in the host's Settings too (protocol 2.15.0). See `settings.ts`. */
     settings: SETTINGS,
