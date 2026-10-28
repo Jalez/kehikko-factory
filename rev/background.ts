@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 
+import { personEnv } from 'kehikot-module-protocol/serve'
+
 /**
  * A re-review run without the person: a background Claude Code session started in the project,
  * typing `/review-factory resume <run>` — the same skill, the same conductor, the same caps. Only
@@ -23,10 +25,16 @@ export interface Started {
 
 export type Spawner = (program: string, args: string[], cwd: string) => Promise<Started>
 
-export const realSpawner: Spawner = async (program, args, cwd) => {
+/**
+ * The session gets this process's environment as the person's (`personEnv`): without the host's own
+ * `bun` first on this module's PATH and `BUN_BE_BUN`, which in a session boot the host on every
+ * `bun` it calls. A background session's environment is Claude Code's daemon's, so a daemon started
+ * from here gets it, and one already running keeps what it had.
+ */
+export const realSpawner = async (program: string, args: string[], cwd: string, env: Record<string, string | undefined> = process.env): Promise<Started> => {
   let child: ChildProcess
   try {
-    child = spawn(program, args, { cwd, detached: true, stdio: 'ignore' })
+    child = spawn(program, args, { cwd, detached: true, stdio: 'ignore', env: personEnv(env) })
   } catch (e) {
     return { ok: false, error: `${program} could not be started: ${e instanceof Error ? e.message : String(e)}` }
   }
