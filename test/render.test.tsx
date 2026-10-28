@@ -111,13 +111,15 @@ describe('the boards follow the picked parts', () => {
     expect(screen.getByTestId('summary').textContent).toBe('Jobs on greetings · all parts')
   })
 
-  test('the all view ignores the parts and the epic', async () => {
+  test('at the project scope the board ignores the parts and the epic (protocol 2.29.0); an agent cannot press "All jobs"', async () => {
     const press = { current: (_: { item: string; value?: string }) => undefined as unknown }
-    render(<Screen host={host({ parts: [part('loud', true)] })} api={fakeApi(jobs)} press={press as never} />)
+    render(<Screen host={host({ parts: [part('loud', true)], scope: 'project' } as never)} api={fakeApi(jobs)} press={press as never} />)
     await waitFor(() => screen.getByTestId('board'))
-    await react(async () => void press.current({ item: 'view', value: 'all' }))
     expect(shown()).toEqual(['w-0001', 'l-0002', 'q-0003', 'b-0004', 'e-0005'])
-    expect(screen.getByTestId('summary').textContent).toBe('All jobs')
+    expect(screen.getByTestId('summary').textContent).toBe('Jobs on all epics')
+    let said: unknown
+    await react(async () => void (said = press.current({ item: 'view', value: 'all' })))
+    expect(String(said)).toContain('Factory’s settings')
   })
 
   test('the Reviews board follows the same rules', async () => {

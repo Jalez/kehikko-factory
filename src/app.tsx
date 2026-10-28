@@ -6,7 +6,7 @@ import { Cover, coverFor, useHost, useServerStanding, type Host as ProtocolHost 
 import { ID } from '../manifest.ts'
 
 import { COLUMNS, boardView, columnOf, inView, partsWords, scopeLine } from '@/board/columns'
-import { headerItems, decisionRefusal, type View } from '@/board/header'
+import { SCOPE_IS_THE_PERSONS, headerItems, decisionRefusal, type View } from '@/board/header'
 import { inboxItems } from '@/board/inbox'
 import { reviewInboxItems } from '@/board/review-inbox'
 import { HeaderMenus } from '@/components/header-menus'
@@ -42,7 +42,8 @@ export function App() {
  */
 export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; press?: { current: (press: Press) => PressAnswer } }) {
   const { projectPath, epic, parts } = host
-  /* "All epics" in the host (protocol 2.9.0): both boards show the whole project, each card labelled with its epic. */
+  /* The container's scope (protocol 2.29.0): the open epic, or the whole project — picked by the person in
+     the host, or "All epics" — when both boards show every epic, each card labelled with its epic. */
   const scope = host.scope ?? 'epic'
   const server = useServerStanding()
   const [board, setBoard] = useState<Board | null>(null)
@@ -123,7 +124,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   const pickedKey = JSON.stringify(pickedParts(parts).map((part) => [part.id, part.heading]))
   const picked = useMemo(() => (JSON.parse(pickedKey) as [string, string][]).map(([id, heading]) => ({ id, heading })), [pickedKey])
   const pickedIds = useMemo(() => picked.map((part) => part.id), [picked])
-  const jobsView = boardView(view === 'all' ? 'all' : 'epic', scope)
+  const jobsView = boardView('epic', scope)
   const runsView = boardView('epic', scope)
   const shownJobs = useMemo(() => inView(jobs, jobsView, epic, pickedIds), [jobs, jobsView, epic, pickedIds])
   const runs = reviews?.runs
@@ -171,7 +172,8 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   const onPress = useCallback(
     ({ item, value }: Press): PressAnswer => {
       if (item === 'view') {
-        if (value !== 'epic' && value !== 'all' && value !== 'reviews') return 'The view is "epic", "all" or "reviews".'
+        if (value === 'all') return SCOPE_IS_THE_PERSONS
+        if (value !== 'epic' && value !== 'reviews') return 'The view is "epic" (the Jobs board) or "reviews".'
         setView(value)
         return true
       }
@@ -183,7 +185,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   )
   if (press) press.current = onPress
 
-  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy, epic, scope), [view, open, busy, epic, scope])
+  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy), [view, open, busy])
   const { header } = host
   useEffect(() => header(menus), [header, menus])
 
@@ -329,7 +331,7 @@ function summary(jobs: readonly BoardJob[], view: View, epic: string | null, pic
     return `${scopeLine('Reviews', 'epic', epic, picked, scope)}${waiting ? ` · ${waiting} waiting for you` : ''}`
   }
   const waiting = jobs.filter((job) => job.stage === 'waiting').length
-  return `${scopeLine('Jobs', view === 'all' ? 'all' : 'epic', epic, picked, scope)}${waiting ? ` · ${waiting} waiting for you` : ''}`
+  return `${scopeLine('Jobs', 'epic', epic, picked, scope)}${waiting ? ` · ${waiting} waiting for you` : ''}`
 }
 
 /** The empty Reviews board's words: no epic, the picked parts, or nothing reviewed yet. */

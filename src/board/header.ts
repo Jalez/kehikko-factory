@@ -5,8 +5,9 @@ import type { Job } from '../../job/shape.ts'
 /**
  * What Factory puts in its container's header, as a pure function of the page's state:
  *
- *  - **View**: this epic's jobs, all of the project's, or the Reviews board (`/review-factory`). An
- *    agent may switch it.
+ *  - **View**: the Jobs board or the Reviews board (`/review-factory`). An agent may switch it.
+ *    Which epics a board shows is not here: it is the container's scope (protocol 2.29.0), the
+ *    open epic or the whole project, which the person picks in Factory's settings in the host.
  *  - **Run**: "Approve and merge…" and "Send back with a note…", for the SELECTED job and only while
  *    it waits for the person. Neither is ever pressed by an agent: approving runs a merge, and the
  *    approve run asks to be confirmed (`confirm`), which the protocol refuses to mark for agents.
@@ -15,7 +16,12 @@ import type { Job } from '../../job/shape.ts'
  * Words are short so the host's menus fit at every width (it folds them to icons, then to one ⋯).
  */
 
-export type View = 'epic' | 'all' | 'reviews'
+/** `epic` is the Jobs board (its id from when it also meant "this epic"); `reviews` the Reviews board. */
+export type View = 'epic' | 'reviews'
+
+/** What an agent pressing the old "All jobs" is told: which epics show is the scope, the person's. */
+export const SCOPE_IS_THE_PERSONS =
+  'Which epics the board shows is its scope — the open epic or the whole project — and the person picks it in Factory’s settings.'
 
 const reason = (text: string) => (text.length > LIMITS.REASON ? `${text.slice(0, LIMITS.REASON - 1)}…` : text)
 
@@ -27,18 +33,15 @@ export function decisionRefusal(job: Job | null): string | null {
   return null
 }
 
-export function headerItems(view: View, selected: Job | null, busy: boolean, epic: string | null, scope: 'epic' | 'project' = 'epic'): HeaderItem[] {
+export function headerItems(view: View, selected: Job | null, busy: boolean): HeaderItem[] {
   const refused = decisionRefusal(selected)
-  /* With the host on "All epics" the jobs board is the whole project either way: said, not hidden. */
-  const thisEpic = scope === 'project' ? 'All epics (the host’s)' : epic ? 'This epic' : 'This epic (none open)'
   return headerItemsSchema.parse([
     {
       kind: 'switch',
       id: 'view',
-      label: 'Jobs',
+      label: 'Board',
       options: [
-        { id: 'epic', label: thisEpic },
-        { id: 'all', label: 'All jobs' },
+        { id: 'epic', label: 'Jobs' },
         { id: 'reviews', label: 'Reviews' },
       ],
       value: view,

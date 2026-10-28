@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { headerItemsSchema } from 'kehikot-module-protocol'
 
-import { headerItems } from '../src/board/header.ts'
+import { SCOPE_IS_THE_PERSONS, headerItems } from '../src/board/header.ts'
 import { inboxItems } from '../src/board/inbox.ts'
 import { newJob } from '../job/flow.ts'
 import type { Job } from '../job/shape.ts'
@@ -30,15 +30,15 @@ describe('the header', () => {
   const waiting = at({ stage: 'waiting', waiting: { why: 'judge-approved', said: 'x' } })
 
   test('approve and send back are there for the selected waiting job, and refused for anything else', () => {
-    const items = headerItems('epic', waiting, false, 'greetings')
+    const items = headerItems('epic', waiting, false)
     expect(items.find((one) => one.id === 'approve')).toMatchObject({ kind: 'run', disabled: null })
-    expect(headerItems('epic', null, false, 'greetings').find((one) => one.id === 'approve')).toMatchObject({ disabled: 'Select a job on the board first.' })
-    expect(headerItems('epic', at({ stage: 'build' }), false, 'greetings').find((one) => one.id === 'send-back')?.kind === 'run').toBe(true)
-    expect((headerItems('epic', at({ stage: 'build' }), false, 'greetings').find((one) => one.id === 'send-back') as { disabled: string | null }).disabled).not.toBeNull()
+    expect(headerItems('epic', null, false).find((one) => one.id === 'approve')).toMatchObject({ disabled: 'Select a job on the board first.' })
+    expect(headerItems('epic', at({ stage: 'build' }), false).find((one) => one.id === 'send-back')?.kind === 'run').toBe(true)
+    expect((headerItems('epic', at({ stage: 'build' }), false).find((one) => one.id === 'send-back') as { disabled: string | null }).disabled).not.toBeNull()
   })
 
   test('an agent can switch the view but never press merge or send back', () => {
-    const items = headerItems('all', waiting, false, null)
+    const items = headerItems('reviews', waiting, false)
     expect(items.find((one) => one.id === 'view')?.agents).toBe(true)
     const approve = items.find((one) => one.id === 'approve')!
     expect(approve.agents).toBe(false)
@@ -46,5 +46,14 @@ describe('the header', () => {
     expect(items.find((one) => one.id === 'send-back')?.agents).toBe(false)
     /* The protocol itself refuses a confirmed run marked for agents. */
     expect(headerItemsSchema.safeParse([{ ...approve, agents: true }]).success).toBe(false)
+  })
+
+  test('the view switches between the boards only: which epics show is the scope (protocol 2.29.0)', () => {
+    const view = headerItems('epic', null, false).find((one) => one.id === 'view')!
+    expect(view.kind === 'switch' && view.options.map((one) => [one.id, one.label])).toEqual([
+      ['epic', 'Jobs'],
+      ['reviews', 'Reviews'],
+    ])
+    expect(SCOPE_IS_THE_PERSONS).toContain('Factory’s settings')
   })
 })
