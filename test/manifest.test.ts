@@ -13,7 +13,7 @@ describe('the manifest', () => {
 
   test('follows the parts, reports to the Inbox, reads the boards and the epic, and offers the factory skills', () => {
     expect(MANIFEST.reacts).toEqual(['parts'])
-    expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read'])
+    expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep'])
     expect(MANIFEST.declares.skills?.map((one) => one.name)).toEqual(['factory', 'review-factory'])
     expect(MANIFEST.declares.storage).toBe(true)
   })

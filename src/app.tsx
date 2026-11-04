@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { LIMITS, activityItemsSchema, pickedParts, trackerColumnsResult, trackerReadingResult, type HeaderItem, type PressValue } from 'kehikot-module-protocol'
-import { Cover, coverFor, useHost, useServerStanding, type Host as ProtocolHost } from 'kehikot-module-protocol/client/react'
+import { Cover, coverFor, useHost, useKept, useServerStanding, type Host as ProtocolHost, type KeepsFor } from 'kehikot-module-protocol/client/react'
 
 import { ID } from '../manifest.ts'
 
@@ -26,7 +26,31 @@ type PressAnswer = string | true | void
 
 /** What the screen needs from the host. A plain object, so a test can draw the board without one. */
 export type Host = Pick<ProtocolHost, 'where' | 'projectPath' | 'epic' | 'parts' | 'header' | 'activity' | 'request'> &
-  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope' | 'footer' | 'drawsFooter'>>
+  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope' | 'footer' | 'drawsFooter'>> &
+  Partial<KeepsFor>
+
+/**
+ * Where the container's view is kept: the host's kept state (protocol 2.51.0), per container and
+ * across restarts. A plain test host without `kept`/`read`/`remember` keeps it in the component
+ * instead, as `useState` did; the protocol's `useHost` always has all three.
+ */
+function useKeeps(host: Host): KeepsFor {
+  const [local, setLocal] = useState<unknown>(null)
+  const latest = useRef(local)
+  latest.current = local
+  if (host.read && host.remember) return host as KeepsFor
+  return {
+    kept: local,
+    read: () => ({ kept: latest.current }),
+    remember: (next: never) => {
+      latest.current = next
+      setLocal(next)
+    },
+  }
+}
+
+const isView = (value: unknown): value is View => value === 'epic' || value === 'reviews'
+const isId = (value: unknown): value is string | null => value === null || typeof value === 'string'
 
 /** How often the page hands the host's rows of the changes under review to the server, for re-review signals. */
 export const ROWS_EVERY_MS = 2 * 60 * 1000
@@ -49,15 +73,18 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   const server = useServerStanding()
   const [board, setBoard] = useState<Board | null>(null)
   const [trouble, setTrouble] = useState<string | null>(null)
-  const [view, setView] = useState<View>('epic')
-  const [selected, setSelected] = useState<string | null>(null)
+  /* Kept per container (protocol 2.51.0): the board shown, and the job or review open on it — ways of
+     looking, back after a restart. The settings panel is not: it is opened to change something. */
+  const keeps = useKeeps(host)
+  const [view, setView] = useKept<View>(keeps, 'view', 'epic', isView)
+  const [selected, setSelected] = useKept<string | null>(keeps, 'job', null, isId)
+  const [openRun, setOpenRun] = useKept<string | null>(keeps, 'run', null, isId)
   const [side, setSide] = useState(false)
   const [noting, setNoting] = useState(false)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [said, setSaid] = useState<string | null>(null)
   const [reviews, setReviews] = useState<ReviewBoard | null>(null)
-  const [openRun, setOpenRun] = useState<string | null>(null)
 
   /* ---- Reading, live ---------------------------------------------------- */
 
@@ -74,10 +101,10 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   }, [api, projectPath])
 
   useEffect(() => {
+    /* The open job and review stay: they are kept for this container, and one that is not in this
+       project's boards simply opens nothing. */
     setBoard(null)
     setReviews(null)
-    setSelected(null)
-    setOpenRun(null)
     if (!projectPath) return
     void read()
     return api.watch(projectPath, () => void read())

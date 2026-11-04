@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
+import { useRef, useState } from 'react'
 import { act as react, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ActivityItem, EpicPart } from 'kehikot-module-protocol'
 
@@ -213,5 +214,57 @@ describe('the footer', () => {
     await waitFor(() => expect(screen.getByTestId('summary')).toBeDefined())
     expect(footers).toHaveLength(0)
     expect(headers.at(-1)?.map((i) => i.id)).toEqual(['view', 'settings', 'approve', 'send-back'])
+  })
+})
+
+describe('what the container keeps', () => {
+  /* A host as the protocol's useHost behaves: `remember` updates `kept` for the next render. */
+  function Kept({ start, remembered, api, press }: { start: unknown; remembered: unknown[]; api: Api; press?: { current: (p: { item: string; value?: unknown }) => unknown } }) {
+    const [kept, setKept] = useState(start)
+    const latest = useRef(kept)
+    latest.current = kept
+    const keeping = host({
+      kept,
+      read: () => ({ kept: latest.current }),
+      remember: (next: never) => {
+        remembered.push(next)
+        latest.current = next
+        setKept(next)
+      },
+    })
+    return <Screen host={keeping} api={api} press={press as never} />
+  }
+
+  test('the board and the open job come back from what the host kept', async () => {
+    render(<Kept start={{ view: 'epic', job: 'a-0001' }} remembered={[]} api={fakeApi([job('a-0001'), job('b-0002')])} />)
+    await waitFor(() => screen.getByTestId('job-view'))
+    expect(screen.queryByTestId('board')).toBeNull()
+  })
+
+  test('the Reviews board comes back from what the host kept', async () => {
+    render(<Kept start={{ view: 'reviews' }} remembered={[]} api={fakeApi([job('a-0001')])} />)
+    await waitFor(() => expect(screen.getByTestId('summary').textContent).toContain('Reviews'))
+    expect(screen.queryByTestId('board')).toBeNull()
+  })
+
+  test('opening a job and switching the board write them back, keeping what else was kept', async () => {
+    const remembered: unknown[] = []
+    const press = { current: (_p: { item: string; value?: unknown }): unknown => undefined }
+    render(<Kept start={{ other: 1 }} remembered={remembered} api={fakeApi([job('a-0001')])} press={press} />)
+    await waitFor(() => screen.getByTestId('card-a-0001'))
+    fireEvent.click(screen.getByTestId('card-a-0001'))
+    await waitFor(() => screen.getByTestId('job-view'))
+    expect(remembered.at(-1)).toEqual({ other: 1, job: 'a-0001' })
+    react(() => void press.current({ item: 'view', value: 'reviews' }))
+    expect(remembered.at(-1)).toEqual({ other: 1, job: 'a-0001', view: 'reviews' })
+  })
+
+  test('the settings panel is not kept', async () => {
+    const remembered: unknown[] = []
+    const press = { current: (_p: { item: string; value?: unknown }): unknown => undefined }
+    render(<Kept start={{}} remembered={remembered} api={fakeApi([job('a-0001')])} press={press} />)
+    await waitFor(() => screen.getByTestId('card-a-0001'))
+    react(() => void press.current({ item: 'settings', value: true }))
+    expect(remembered).toEqual([])
   })
 })

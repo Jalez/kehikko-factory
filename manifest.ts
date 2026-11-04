@@ -110,8 +110,9 @@ export const DECLARED: Manifest = manifestSchema.parse({
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
     /* `epics:read`, `steps:read` and `parts:read` (protocol 2.21.0): a review weighs a change
        against its epic's vision, which this server asks the host for (`rev/vision.ts`) rather than
-       reading the host's files or Journeys'. */
-    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read'],
+       reading the host's files or Journeys'.
+       `state:keep` (2.51.0): the board shown and the job or review open on it, kept per container. */
+    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep'],
     storage: true,
     prompt: false,
     /* "All epics" (protocol 2.9.0), for a host before the `project` mode above (2.29.0). */
