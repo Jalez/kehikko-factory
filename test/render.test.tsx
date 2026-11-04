@@ -184,3 +184,34 @@ describe('the boards follow the picked parts', () => {
     expect(asked).toEqual(['/work/app', '/work/other'])
   })
 })
+
+describe('the footer', () => {
+  test('a host that draws it gets the board line, and the selected job with Approve and Send back beside it; the header then has neither', async () => {
+    const footers: { id: string; kind: string; text?: string; align?: string }[][] = []
+    const headers: { id: string }[][] = []
+    const jobs = [job('b-0002', { stage: 'waiting', waiting: { why: 'judge-approved', said: 'ok' } })]
+    render(
+      <Screen
+        host={host({ drawsFooter: true, footer: (items) => void footers.push(items as never), header: (items) => void headers.push(items as never) })}
+        api={fakeApi(jobs)}
+      />,
+    )
+    await waitFor(() => expect(footers.at(-1)?.[0]).toMatchObject({ id: 'summary' }))
+    expect(footers.at(-1)?.[0]?.text).toContain('1 waiting for you')
+    expect(screen.queryByTestId('summary')).toBeNull()
+    fireEvent.click(await screen.findByText('Job b-0002'))
+    await waitFor(() => expect(footers.at(-1)?.find((i) => i.id === 'job')).toMatchObject({ text: 'Job b-0002 · Waiting for you', align: 'end' }))
+    expect(footers.at(-1)?.find((i) => i.id === 'approve')).toMatchObject({ kind: 'run', align: 'end' })
+    expect(footers.at(-1)?.find((i) => i.id === 'send-back')).toMatchObject({ kind: 'run' })
+    expect(headers.at(-1)?.map((i) => i.id)).toEqual(['view', 'settings'])
+  })
+
+  test('a host that does not draw it gets none, and the header keeps Approve and Send back', async () => {
+    const footers: unknown[] = []
+    const headers: { id: string }[][] = []
+    render(<Screen host={host({ drawsFooter: false, footer: (items) => void footers.push(items), header: (items) => void headers.push(items as never) })} api={fakeApi([job('a-0001')])} />)
+    await waitFor(() => expect(screen.getByTestId('summary')).toBeDefined())
+    expect(footers).toHaveLength(0)
+    expect(headers.at(-1)?.map((i) => i.id)).toEqual(['view', 'settings', 'approve', 'send-back'])
+  })
+})

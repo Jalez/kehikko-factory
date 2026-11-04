@@ -13,6 +13,12 @@ import type { Job } from '../../job/shape.ts'
  *    approve run asks to be confirmed (`confirm`), which the protocol refuses to mark for agents.
  *    Send back opens a note in the page; it is the person's words that go to the builder.
  *
+ *  - **View**: Settings, the panel of the board's queue or review settings (a setting, so here
+ *    rather than a button on the page).
+ *
+ * With a host that draws the footer (`footed`), Approve and Send back are not here: they act on the
+ * selected job, and sit in the footer beside it (`footer.ts`). Never in both rows.
+ *
  * Words are short so the host's menus fit at every width (it folds them to icons, then to one ⋯).
  */
 
@@ -33,20 +39,10 @@ export function decisionRefusal(job: Job | null): string | null {
   return null
 }
 
-export function headerItems(view: View, selected: Job | null, busy: boolean): HeaderItem[] {
+/** Approve and Send back for the selected job: the header's, or with a footer the footer's. */
+export function decisionItems(selected: Job | null, busy: boolean): unknown[] {
   const refused = decisionRefusal(selected)
-  return headerItemsSchema.parse([
-    {
-      kind: 'switch',
-      id: 'view',
-      label: 'Board',
-      options: [
-        { id: 'epic', label: 'Jobs' },
-        { id: 'reviews', label: 'Reviews' },
-      ],
-      value: view,
-      agents: true,
-    },
+  return [
     {
       kind: 'run',
       id: 'approve',
@@ -63,5 +59,23 @@ export function headerItems(view: View, selected: Job | null, busy: boolean): He
       icon: 'undo',
       disabled: refused ? reason(refused) : null,
     },
+  ]
+}
+
+export function headerItems(view: View, selected: Job | null, busy: boolean, { footed = false, settings = false }: { footed?: boolean; settings?: boolean } = {}): HeaderItem[] {
+  return headerItemsSchema.parse([
+    {
+      kind: 'switch',
+      id: 'view',
+      label: 'Board',
+      options: [
+        { id: 'epic', label: 'Jobs' },
+        { id: 'reviews', label: 'Reviews' },
+      ],
+      value: view,
+      agents: true,
+    },
+    { kind: 'toggle', id: 'settings', label: 'Settings', checked: settings },
+    ...(footed ? [] : decisionItems(selected, busy)),
   ])
 }

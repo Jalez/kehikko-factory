@@ -7,6 +7,7 @@ import { ID } from '../manifest.ts'
 
 import { COLUMNS, boardView, columnOf, inView, partsWords, scopeLine } from '@/board/columns'
 import { SCOPE_IS_THE_PERSONS, headerItems, decisionRefusal, type View } from '@/board/header'
+import { footerItems } from '@/board/footer'
 import { inboxItems } from '@/board/inbox'
 import { reviewInboxItems } from '@/board/review-inbox'
 import { HeaderMenus } from '@/components/header-menus'
@@ -25,7 +26,7 @@ type PressAnswer = string | true | void
 
 /** What the screen needs from the host. A plain object, so a test can draw the board without one. */
 export type Host = Pick<ProtocolHost, 'where' | 'projectPath' | 'epic' | 'parts' | 'header' | 'activity' | 'request'> &
-  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope'>>
+  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope' | 'footer' | 'drawsFooter'>>
 
 /** How often the page hands the host's rows of the changes under review to the server, for re-review signals. */
 export const ROWS_EVERY_MS = 2 * 60 * 1000
@@ -177,6 +178,11 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
         setView(value)
         return true
       }
+      if (item === 'settings') {
+        if (typeof value !== 'boolean') return '"settings" is a toggle: say true or false.'
+        setSide(value)
+        return true
+      }
       if (item === 'approve') return approve()
       if (item === 'send-back') return startSendBack()
       return `Factory has nothing called "${item}" to press.`
@@ -185,9 +191,19 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   )
   if (press) press.current = onPress
 
-  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy), [view, open, busy])
+  /* The footer the host draws, when it draws one (2.38.0): the board's line, the selected job with
+     Approve and Send back beside it, and what an act said. The page then draws no row of its own. */
+  const footed = host.where === 'hosted' && host.drawsFooter === true
+  const menus: HeaderItem[] = useMemo(() => headerItems(view, open, busy, { footed, settings: side }), [view, open, busy, footed, side])
   const { header } = host
   useEffect(() => header(menus), [header, menus])
+  const footerSaid = footed
+    ? JSON.stringify(footerItems({ summary: summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length, scope), open, busy, said, trouble }))
+    : null
+  const { footer } = host
+  useEffect(() => {
+    if (footerSaid) footer?.(JSON.parse(footerSaid))
+  }, [footer, footerSaid])
 
   /* The boards the host read (protocol 2.6.0); null from a host that has none or does not answer. */
   const hostBoards = useCallback(async (): Promise<FoundBoard[] | null> => {
@@ -206,16 +222,16 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
 
   return (
     <div className="flex h-screen min-w-0 flex-col text-sm">
-      <header className="flex min-h-8 shrink-0 items-center gap-2 border-b px-2 py-1">
-        <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted-foreground)]" data-testid="summary">
-          {summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length, scope)}
-        </span>
-        {host.where === 'unhosted' ? <HeaderMenus items={menus} onPress={onPress} /> : null}
-        <Button size="sm" variant={side ? 'secondary' : 'ghost'} className="h-6 shrink-0 px-2 text-xs" onClick={() => setSide((was) => !was)} aria-pressed={side}>
-          Settings
-        </Button>
-      </header>
-      {said ? (
+      {footed ? null : (
+        <header className="flex min-h-8 shrink-0 items-center gap-2 border-b px-2 py-1">
+          <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted-foreground)]" data-testid="summary">
+            {summary(shownJobs, view, epic, picked, shownRuns, shownQuestions.length, scope)}
+          </span>
+          {/* Settings is a toggle in the header now; alone on its own port the page draws the header's menus. */}
+          {host.where === 'unhosted' ? <HeaderMenus items={menus} onPress={onPress} /> : null}
+        </header>
+      )}
+      {said && !footed ? (
         <p className="shrink-0 border-b px-2 py-1 text-xs" role="status" data-testid="said">
           {said}
           <button type="button" className="ml-2 text-[var(--muted-foreground)]" aria-label="dismiss" onClick={() => setSaid(null)}>
@@ -223,7 +239,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
           </button>
         </p>
       ) : null}
-      {trouble ? <p role="alert" className="shrink-0 border-b px-2 py-1 text-xs text-[var(--destructive)]">{trouble}</p> : null}
+      {trouble && !footed ? <p role="alert" className="shrink-0 border-b px-2 py-1 text-xs text-[var(--destructive)]">{trouble}</p> : null}
       {side && board && projectPath && view !== 'reviews' ? (
         <div className="max-h-[50%] shrink-0 overflow-auto border-b">
           <QueueView board={board} projectPath={projectPath} epic={epic} parts={pickedIds} api={api} hostBoards={hostBoards} onSaid={say} />
