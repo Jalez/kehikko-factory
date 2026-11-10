@@ -1,6 +1,51 @@
 import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 import pkg from './package.json'
 import { SETTINGS } from './settings.ts'
+/* This module's introduction (protocol 2.57.0): slides the host shows in its introduction dialog. Also
+   read as a file from the repository, so a person can watch it before the module runs or is installed. */
+import intro from './intro.json'
+
+/** "How to use" (protocol 2.52.0). Each string one line of plain text. */
+export const HELP = {
+  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into Review.',
+  sections: [
+    {
+      title: 'What it shows',
+      points: [
+        'Jobs: the epic’s jobs as cards across Spec, Plan, Build, Review, Judge, Waiting for you, Merged and Failed, each with its round, review angles, issue and what its conversation is doing now.',
+        'Reviews: every /review-factory run across Queued, Gathering, Planning, Reviewing, Challenging, Judging, Waiting for you and Sent, with checklist progress on each card.',
+        'Choose the board in the header’s Board switch. The boards narrow with the parts picked in the bar; All epics shows the whole project, each card labelled with its epic.',
+        'Press a card to read its files: the spec, the plan, every review, counter-argument and ruling, and the decision. A review card opens How this review was made.',
+      ],
+    },
+    {
+      title: 'How to use it',
+      points: [
+        'Start a job by typing /factory and what you want in a Claude Code conversation on this kehikko. /factory next builds what is next.',
+        'A job waiting for you, or one that failed, lands in the Inbox. Approve and merge it, or Send back with a note, from the header or with /factory approve and /factory rework.',
+        'Review a pull or merge request with /review-factory, on a kehikko that also has Review. The comments are drafted into Review; you send them from there.',
+        'Settings in the header, or the gear on the container, holds the switches: let the judge merge, post two-way reviews by myself, re-review by myself, reviewers may run tests, and the door rules.',
+        'Map Factory’s stages onto your own GitHub or GitLab board in the board’s settings, and jobs move your issues as they change stage.',
+      ],
+    },
+    {
+      title: 'What agents can do',
+      points: [
+        'Read only: jobs lists a project’s jobs and their stages, job reads one job’s files, reviews and review read the reviews and their records.',
+        'An agent cannot start, approve, merge or send back a job, and cannot start, steer or send a review.',
+      ],
+    },
+    {
+      title: 'Rules',
+      points: [
+        'Every job ends with you unless you turn on Let the judge merge approved jobs by itself for the project. It is off by default.',
+        'A change that conflicts with main is never merged: the job is handed back to you.',
+        'The builder works in its own worktree and branch beside your project, never in your checkout. Jobs are kept under the project’s .kehikot/factory folder.',
+        'Every setting is yours alone: an agent asking to change one is refused.',
+      ],
+    },
+  ],
+}
 
 export const ID = 'kehikot.factory'
 /** The module's version: package.json's, the one place it is written. A release is tagged with it. */
@@ -93,6 +138,9 @@ export const DECLARED: Manifest = manifestSchema.parse({
     + 'It also runs /review-factory, a review panel for pull and merge requests (planner, two reviewers, an adversary, a judge) that drafts '
     + 'into Review: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
     + 'steer or send a review.',
+  /* "How to use" (protocol 2.52.0), and the introduction (protocol 2.57.0). */
+  help: HELP,
+  intro,
   entry: '/app',
   /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
   modes: [
