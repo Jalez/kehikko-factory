@@ -26,7 +26,7 @@ type PressAnswer = string | true | void
 
 /** What the screen needs from the host. A plain object, so a test can draw the board without one. */
 export type Host = Pick<ProtocolHost, 'where' | 'projectPath' | 'epic' | 'parts' | 'header' | 'activity' | 'request'> &
-  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope' | 'footer' | 'drawsFooter'>> &
+  Partial<Pick<ProtocolHost, 'kehikko' | 'containers' | 'selection' | 'scope' | 'footer' | 'drawsFooter' | 'ready'>> &
   Partial<KeepsFor>
 
 /**
@@ -57,7 +57,7 @@ export const ROWS_EVERY_MS = 2 * 60 * 1000
 
 export function App() {
   const press = useRef<(press: Press) => PressAnswer>(() => 'Factory is not ready yet.')
-  const host = useHost(ID, { onPress: (one) => press.current(one) })
+  const host = useHost(ID, { onPress: (one) => press.current(one) }, { keepView: { except: ['settings'] } })
   return <Screen host={host} press={press} />
 }
 
@@ -244,7 +244,14 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
 
   /* ---- Drawing ---------------------------------------------------------- */
 
+  /* The host's cover is held until the page is drawn (protocol 2.70.0): once the boards are read, or the read
+     failed, or a cover says why there is nothing to read. */
   const cover = server === 'stale' ? 'stale' : (coverFor(host as never, { project: true }) ?? (server === 'down' && !board ? 'down' : null))
+  const drawn = cover !== null ? cover !== 'waiting' : board !== null || trouble !== null
+  const { ready } = host
+  useEffect(() => {
+    if (drawn) ready?.()
+  }, [drawn, ready])
   if (cover) return <Cover state={cover} name="Factory" onRetry={() => void read()} />
 
   return (
@@ -295,18 +302,16 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
             )
           }
           return (
-            <main className="min-h-0 flex-1 overflow-auto">
-              {!reviews ? <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the reviews…</p> : <ReviewBoardView runs={shownRuns} questions={shownQuestions} selected={openRun} onOpen={setOpenRun} showPlace={runsView === 'all'} empty={reviewsEmpty(epic, picked, reviews.runs.some((one) => !one.archived), scope)} />}
+            <main data-kehikot-scroll className="min-h-0 flex-1 overflow-auto">
+              {!reviews ? null : <ReviewBoardView runs={shownRuns} questions={shownQuestions} selected={openRun} onOpen={setOpenRun} showPlace={runsView === 'all'} empty={reviewsEmpty(epic, picked, reviews.runs.some((one) => !one.archived), scope)} />}
             </main>
           )
         })()
       ) : open && projectPath ? (
         <JobView job={open} projectPath={projectPath} api={api} onBack={() => setSelected(null)} onApprove={() => approve()} onSendBack={() => startSendBack()} onSaid={say} />
       ) : (
-        <main className="min-h-0 flex-1 overflow-auto">
-          {!board ? (
-            <p className="p-3 text-xs text-[var(--muted-foreground)]">Reading the jobs…</p>
-          ) : shownJobs.length === 0 ? (
+        <main data-kehikot-scroll className="min-h-0 flex-1 overflow-auto">
+          {!board ? null : shownJobs.length === 0 ? (
             <Empty view={jobsView} epic={epic} picked={picked} any={jobs.some((job) => !job.archived)} />
           ) : (
             <div className="flex min-h-full gap-2 p-2" data-testid="board">
