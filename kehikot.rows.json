@@ -1,0 +1,42 @@
+[
+  {
+    "name": "the jobs board",
+    "header": [
+      {
+        "kind": "switch",
+        "id": "view",
+        "label": "Board",
+        "agents": true,
+        "options": [
+          {
+            "id": "epic",
+            "label": "Jobs"
+          },
+          {
+            "id": "reviews",
+            "label": "Reviews"
+          }
+        ],
+        "value": "epic"
+      },
+      {
+        "kind": "toggle",
+        "id": "settings",
+        "label": "Settings",
+        "agents": false,
+        "checked": false
+      }
+    ],
+    "footer": [
+      {
+        "kind": "text",
+        "id": "summary",
+        "text": "3 jobs · 1 waiting for you",
+        "level": "normal",
+        "align": "start",
+        "optional": false,
+        "tooltip": "3 jobs · 1 waiting for you"
+      }
+    ]
+  }
+]
