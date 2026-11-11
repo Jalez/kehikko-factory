@@ -7,7 +7,7 @@ import { RUN_RUNNING } from '../../rev/shape.ts'
  * What the Reviews board adds to Factory's Inbox list (the page sends ONE whole list: jobs and
  * reviews together, `inbox.ts` and this):
  *
- *  - a review waiting for you (the draft is in Review, its checklist proposal waits, it stopped or
+ *  - a review waiting for you (the draft is ready, its checklist proposal waits, it stopped or
  *    the change moved on): `attention`;
  *  - a re-review that is due and waits for `/review-factory resume`: `attention`, low;
  *  - the first-time question about an author: `attention`, with the recommended answer in the detail;
@@ -36,7 +36,7 @@ export function reviewInboxItems(runs: readonly Run[], questions: readonly { aut
     const name = `${run.change.ref} ${run.change.title}`
     if (run.waiting) {
       const label =
-        run.waiting.why === 'drafted' ? `Review ready, read it in Review: ${name}`
+        run.waiting.why === 'drafted' ? `Review ready, read it${run.drafted?.in ? ` in ${run.drafted.in}` : ''}: ${name}`
         : run.waiting.why === 'checklist' ? `Review waits for your checklist: ${name}`
         : run.waiting.why === 'moved-on' ? `Review stopped, the change moved on: ${name}`
         : `Review stopped: ${name}`

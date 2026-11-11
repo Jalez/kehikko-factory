@@ -343,19 +343,21 @@ export function panelJudgePrompt(subject: PanelSubject, input: { vision: boolean
 
 export function diagramPrompt(
   subject: PanelSubject,
-  input: { project: string; epic: string; requests: readonly { point: string; kind: 'sequence' | 'graph'; now: string; proposed: string }[]; runId: string },
+  input: { project: string; epic: string; requests: readonly { point: string; kind: 'sequence' | 'graph'; now: string; proposed: string }[]; runId: string; drawer: { name: string; tool: string } | null },
 ): string {
+  const name = input.drawer?.name ?? 'the module that draws diagrams'
+  const tool = input.drawer?.tool ?? 'diagram'
   return lines(
-    `You draw what the judge of a review of ${subject.change} asked for, with the Flows module's \`write_flow\` tool (project ${input.project}, epic ${input.epic}).`,
+    `You draw what the judge of a review of ${subject.change} asked for, with ${name}'s \`${tool}\` tool (project ${input.project}, epic ${input.epic}).`,
     '',
     `Read the points (${subject.files.points}), the judgement (${subject.files.judgement}) and the code you need in ${subject.checkout}. ${readOnly(subject)}`,
     '',
-    'For each request, write TWO flows of the same kind: "now" and "proposed", with ids `review-<point>-now` and `review-<point>-proposed` (prefix them with '
+    'For each request, write TWO diagrams of the same kind: "now" and "proposed", with ids `review-<point>-now` and `review-<point>-proposed` (prefix them with '
       + `\`${input.runId}-\`), kind "sequence" for call order or "graph" for what depends on what, a few stages each that walk a person through it.`,
     ...input.requests.map((one) => `- ${one.point} (${one.kind}): now — ${one.now}; proposed — ${one.proposed}`),
-    'If the Flows tools are not connected in this conversation, do not install anything: write that in the file below and stop.',
+    `If ${name}'s tools are not connected in this conversation, do not install anything: write that in the file below and stop.`,
     '',
-    `Write ${subject.files.diagrams}: one line per flow you wrote, exactly \`- <point>: <flow id>\`, or why you could not.`,
+    `Write ${subject.files.diagrams}: one line per diagram you wrote, exactly \`- <point>: <diagram id>\`, or why you could not.`,
     '',
     subject.only,
   )

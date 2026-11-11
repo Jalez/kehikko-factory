@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import { newRun } from '../rev/flow.ts'
-import { AGENT_NAME, CHECKLIST, checklistsHeld, createChecklist, draftToReview, parseList, proposeBriefing, REVIEW, setStates, summaryOf } from '../rev/neighbours.ts'
+import { AGENT_NAME, checklistsHeld, createChecklist, draftToReview, parseList, proposeBriefing, setStates, summaryOf } from '../rev/neighbours.ts'
 import type { Run } from '../rev/shape.ts'
 import { CHANGE } from './fixtures.ts'
-import { LIST, standIn } from './stand-ins.ts'
+import { CHECKLIST, DOCUMENT, DRAFTS, HOLDER, LIST, REVIEW, standIn } from './stand-ins.ts'
 
-describe('Checklist, through its door', () => {
+describe('checklist.holder, through its provider\'s door', () => {
   test('its print reads as states, and a person\'s tick is told from an agent\'s', () => {
     const list = parseList(LIST)!
     expect(list.id).toBe('c1')
@@ -21,7 +21,7 @@ describe('Checklist, through its door', () => {
 
   test('only the lists held against the change are read', async () => {
     const { n, calls } = standIn()
-    const held = await checklistsHeld(n, '/p', ['gh#7', 'gh:me/app#7'])
+    const held = await checklistsHeld(n, HOLDER, '/p', ['gh#7', 'gh:me/app#7'])
     expect(held.lists.map((one) => one.id)).toEqual(['c1'])
     expect(held.ref).toBe('gh#7')
     expect(calls.filter((one) => one.args.checklist).map((one) => one.args)).toEqual([{ project: '/p', checklist: 'c1', ref: 'gh#7' }])
@@ -29,7 +29,7 @@ describe('Checklist, through its door', () => {
 
   test('an accepted proposal is made, filled and held against the change', async () => {
     const { n, calls } = standIn()
-    const made = await createChecklist(n, '/p', 'gh#7', 'Proposed for gh#7', ['Has a test', 'Docs updated'])
+    const made = await createChecklist(n, HOLDER, '/p', 'gh#7', 'Proposed for gh#7', ['Has a test', 'Docs updated'])
     expect(made.ok).toBe(true)
     expect(calls.map((one) => one.tool)).toEqual(['create_checklist', 'add_checklist_item', 'add_checklist_item', 'hold_checklist', 'checklists'])
     expect(calls[3]!.args).toMatchObject({ checklist: 'c9', ref: 'gh#7' })
@@ -44,7 +44,7 @@ describe('Checklist, through its door', () => {
       { checklist: 'c1', item: 'i3', state: 'n/a', note: 'No dependency changed.', by: 'correctness' },
       { checklist: 'c3', item: 'j1', state: 'pass', note: 'Typed.', by: 'tests' },
     ]
-    const done = await setStates(n, '/p', 'gh#7', { answers, checklists })
+    const done = await setStates(n, HOLDER, '/p', 'gh#7', { answers, checklists })
     expect(calls.filter((one) => one.tool === 'check_item').map((one) => [one.args.item, one.args.state])).toEqual([
       ['i2', 'passed'],
       ['i3', 'na'],
@@ -54,7 +54,7 @@ describe('Checklist, through its door', () => {
   })
 })
 
-describe('Review and Paper, through their doors', () => {
+describe('review.drafts and document.proposals, through their providers\' doors', () => {
   const judgedRun = (): Run => ({
     ...newRun({ id: 'app-7-a1b2', change: CHANGE, session: null, place: null, now: '2026-10-21T12:00:00.000Z' }),
     plan: { angles: [], door: { kind: 'two-way', reasons: ['x'], rule: null }, uiux: { touches: false, reason: '', screens: [], shots: false } },
@@ -80,7 +80,7 @@ describe('Review and Paper, through their doors', () => {
 
   test('earlier runs\' unsent comments dropped, kept points drafted with meta, the summary proposed beside the person\'s', async () => {
     const { n, calls } = standIn()
-    const done = await draftToReview(n, '/p', judgedRun(), ['app-7-0000'])
+    const done = await draftToReview(n, DRAFTS, '/p', judgedRun(), ['app-7-0000'])
     expect(calls.map((one) => `${one.id}:${one.tool}`)).toEqual([`${REVIEW}:drop_run_comments`, `${REVIEW}:add_comment`, `${REVIEW}:propose_review`])
     expect(calls[0]!.args).toEqual({ project: '/p', change: CHANGE.url, run: 'app-7-0000' })
     expect(calls[1]!.args).toMatchObject({ path: 'greet.js', line: 2, side: 'new', meta: { run: 'app-7-a1b2', severity: 'blocking', ruling: 'required', reason: 'A bug.', challenge: 'It is loud enough.' } })
@@ -92,7 +92,7 @@ describe('Review and Paper, through their doors', () => {
 
   test('a comment Review refuses is kept with Review\'s sentence', async () => {
     const { n } = standIn({ [`${REVIEW}:add_comment`]: () => ({ ok: false, text: 'line 2 of greet.js is not in this diff.' }) })
-    const done = await draftToReview(n, '/p', judgedRun(), [])
+    const done = await draftToReview(n, DRAFTS, '/p', judgedRun(), [])
     expect(done.refused).toEqual([{ point: 'p1', why: 'line 2 of greet.js is not in this diff.' }])
   })
 
@@ -104,10 +104,29 @@ describe('Review and Paper, through their doors', () => {
 
   test('the briefing is a pending section before \\end{document}, escaped', async () => {
     const { n, calls } = standIn()
-    await proposeBriefing(n, '/p', 'greetings', 'gh#7 Shout', '# Decisions\n\nUses 100% & more.')
+    await proposeBriefing(n, DOCUMENT, '/p', 'greetings', 'gh#7 Shout', '# Decisions\n\nUses 100% & more.')
     expect(calls[0]!.args).toMatchObject({ epic: 'greetings', find: '\\end{document}' })
     expect(String(calls[0]!.args.replace)).toContain('\\section*{Decision briefing: gh\\#7 Shout}')
     expect(String(calls[0]!.args.replace)).toContain('Uses 100\\% \\& more.')
     expect(calls.every((one) => one.id !== CHECKLIST)).toBe(true)
+    expect(calls[0]!.id).toBe(DOCUMENT.module)
+    expect(calls[0]!.tool).toBe(DOCUMENT.descriptor.tools.propose)
+  })
+})
+
+describe('names and tools come from the descriptor', () => {
+  test('a provider whose tools are named otherwise is called by those names, and its name is said', async () => {
+    const other = { ...HOLDER, module: 'some.lists', name: 'Lists', descriptor: { name: 'Lists', tools: { list: 'l', create: 'c', add: 'a', hold: 'h', check: 'k' } } }
+    const { n, calls } = standIn({ 'some.lists:c': () => ({ ok: false, text: 'no.' }) })
+    const made = await createChecklist(n, other, '/p', 'gh#7', 'x', ['y'])
+    expect(made).toEqual({ ok: false, why: 'Lists did not make the list: no.' })
+    expect(calls.map((one) => `${one.id}:${one.tool}`)).toEqual(['some.lists:c'])
+  })
+
+  test('a refused drop is said with the drafts provider\'s name', async () => {
+    const { n } = standIn({ [`${REVIEW}:drop_run_comments`]: () => ({ ok: false, text: 'nope' }) })
+    const run = { ...newRun({ id: 'app-7-a1b2', change: CHANGE, session: null, place: null, now: '2026-10-21T12:00:00.000Z' }), judged: { rulings: [], verdict: 'approve' as const, visionFit: '', summary: 's', pathToSuccess: [], close: null, diagrams: [], notes: [] } }
+    const done = await draftToReview(n, { ...DRAFTS, name: 'Drafts' }, '/p', run, ['app-7-0000'])
+    expect(done.notes[0]).toBe('Drafts did not drop the unsent comments of app-7-0000: nope')
   })
 })

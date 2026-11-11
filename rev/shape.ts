@@ -30,7 +30,7 @@ export const changeSchema = z.object({
   repo: z.string().min(1).max(300),
   number: z.number().int().positive(),
   url: z.string().max(2000),
-  /** The ref as the host spells it (`gh#7`, `!7`, `gh:owner/repo#7`): what Checklist holds lists against. */
+  /** The ref as the host spells it (`gh#7`, `!7`, `gh:owner/repo#7`): what checklists are held against. */
   ref: z.string().max(300),
   title: z.string().max(300).default(''),
   author: z.object({ login: z.string().max(100), name: z.string().max(200).optional() }).nullable().default(null),
@@ -149,8 +149,10 @@ export const runSchema = z.object({
     .default(null),
   /** Points raised by Factory itself, by rule (no before/after pictures on a UI change). */
   general: z.array(z.object({ id: z.string(), claim: z.string(), suggestion: z.string() })).max(5).default([]),
-  /** Flows written for the judge's diagram requests: point → flow id. */
+  /** Diagrams written for the judge's diagram requests: point → the diagram's id. */
   diagrams: z.array(z.object({ point: z.string(), flow: z.string() })).max(10).default([]),
+  /** The provider of `diagram.writer` placed on the run's kehikko when the judge ruled: its name and the tool the drawer calls. */
+  drawer: z.object({ name: z.string().max(80), tool: z.string().max(80) }).nullable().default(null),
   drafted: z
     .object({
       at: z.string(),
@@ -159,6 +161,10 @@ export const runSchema = z.object({
       proposal: z.boolean(),
       ticks: z.number().int(),
       briefing: z.enum(['none', 'record', 'paper']).default('none'),
+      /** The name of the module the draft is in (the provider of `review.drafts`), null when none. */
+      in: z.string().max(80).nullable().default(null),
+      /** The name of the module the briefing was proposed in (the provider of `document.proposals`). */
+      briefingIn: z.string().max(80).nullable().default(null),
     })
     .nullable()
     .default(null),

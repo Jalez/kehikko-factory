@@ -1,11 +1,10 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { moduleDir, type TrackerRow } from 'kehikot-module-protocol'
+import { documentRoot, type TrackerRow } from 'kehikot-module-protocol'
 
 import { mainCheckout } from './git.ts'
 import { stopped } from './job/steps.ts'
-import { readFactoryKey } from './machine.ts'
 import { angleFor } from './review/angles.ts'
 import { parseUnified, totals, type DiffFile } from './review/diff.ts'
 import { numbered, rulePanel } from './review/panel.ts'
@@ -18,7 +17,7 @@ import { checkout, removeCheckout } from './rev/checkout.ts'
 import { doorByRules, hasBeforeAfter, settleDoor } from './rev/doors-rule.ts'
 import { advanceRun, describeRun, newRun, runAnglesOpen, runIsRunning, type RunEvent } from './rev/flow.ts'
 import { locate, readMeta, spellRef, spellingsOf, urlOf, type Meta, type Target } from './rev/forge.ts'
-import { CHECKLIST, checklistsHeld, createChecklist, draftToReview, FLOWS, PAPER, proposeBriefing, REVIEW, setStates, type Neighbours } from './rev/neighbours.ts'
+import { CHECKLIST_HOLDER, checklistsHeld, createChecklist, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, draftToReview, proposeBriefing, REVIEW_DRAFTS, setStates, type Neighbours } from './rev/neighbours.ts'
 import { due, needsComments, parseRule } from './rev/rerev.ts'
 import { DEFAULT_REVIEW_SETTINGS, doorRuleSchema, MAX_ROUNDS, reviewSettingsSchema, type Change, type ReviewSettings, type Run, type RunAngle, type RunChecklist } from './rev/shape.ts'
 import { agentsFor, instructRun, itemsOf } from './rev/steps.ts'
@@ -38,7 +37,8 @@ import { ID } from './manifest.ts'
  *
  * Agents only write their own files in the record. Gathering, validation and drafting are done
  * here, by the module, with no agent: the points are checked mechanically before any agent sees
- * them, and only this module writes into Review and Checklist, through their doors.
+ * them, and only this module writes into the draft review and the checklists, through the doors of
+ * the modules that provide those services (rev/neighbours.ts).
  */
 
 export interface ReviewNeeds {
@@ -51,22 +51,18 @@ export interface ReviewNeeds {
   cli: CliRun
   neighbours: Neighbours
   spawner?: Spawner
-  /** Review's key for the Factory-only send, or null. */
-  key(): string | null
   /** Claude Code's folder, for reading what a review spent. */
   claudeDir?: string
   /** How this server asks the host about the project (`askHost`); the real one when absent. */
   ask?: HostAsk
 }
 
-export const reviewKey = (): string | null => readFactoryKey()
-
 export const REVIEW_HELP = [
   '/review-factory [<pull or merge request>]     review it: the change selected on the canvas when none is named',
   '/review-factory status                        the reviews of this project',
   '/review-factory resume <review>               carry on a review here (one waiting for you, or one whose conversation stopped)',
   '/review-factory angles <review> a,b           the two angles, before the reviewers start',
-  '/review-factory checklist <review> accept     accept the proposed checklist; it is made in Checklist and held against the change',
+  '/review-factory checklist <review> accept     accept the proposed checklist; it is made and held against the change',
   '/review-factory checklist <review> edit <item>; <item>; …   the checklist as you want it instead',
   '/review-factory budget <review> points=N files=N tokens=N',
   '/review-factory stop <review>',
@@ -110,8 +106,8 @@ function findRun(root: string, said: string): Result<Run> {
 
 const FACTORY_ID = ID
 
-/** The kehikko this conversation is placed on, and whether the Factory page saw itself there. */
-function kehikkoCheck(root: string, session: string): { ok: true; kehikko: string; place: Run['place'] } | { ok: false; why: string } {
+/** The kehikko this conversation is placed on, whether the Factory page saw itself there, and whether a module that keeps draft reviews is placed on it. */
+async function kehikkoCheck(root: string, session: string, needs: Pick<ReviewNeeds, 'neighbours'>): Promise<{ ok: true; kehikko: string; place: Run['place'] } | { ok: false; why: string }> {
   const place = placeOfSession(root, session)
   if (!place?.kehikko) {
     return {
@@ -119,33 +115,35 @@ function kehikkoCheck(root: string, session: string): { ok: true; kehikko: strin
       why: 'this conversation is not placed on a kehikko in Kehikot, so there is no Factory to run a review. Start the conversation from a kehikko that has the Factory module on it.',
     }
   }
-  const missing = missingForReview(readSeen(root).kehikkos[place.kehikko]?.modules ?? [])
-  if (missing.length) return { ok: false, why: missingSaid(missing) }
+  const drafts = await needs.neighbours.find(REVIEW_DRAFTS, { project: root, kehikko: place.kehikko })
+  const missing = missingForReview(readSeen(root).kehikkos[place.kehikko]?.modules ?? [], drafts)
+  if (missing.length) return { ok: false, why: missingSaid(missing, drafts?.name ?? NO_DRAFTS) }
   return { ok: true, kehikko: place.kehikko, place }
 }
 
+/** How a missing provider of `review.drafts` is named when there is none to name. */
+export const NO_DRAFTS = 'a module that keeps draft reviews'
+
 /**
- * What /review-factory needs on its kehikko: Review, which it drafts into, and Factory, whose page
- * saw the kehikko (`seen.modules`). The skill declares Review in `needs` (skills.ts), so the Claude
- * module leaves it out of a conversation on a kehikko without Review; this is the same rule at run
- * time, for a conversation that outlived its kehikko's arrangement.
+ * What /review-factory needs on its kehikko: the provider of `review.drafts`, which it drafts into,
+ * placed there (the host's `services.find` says so), and Factory, whose page saw the kehikko
+ * (`seen.modules`). This is the rule at run time, for a conversation that outlived its kehikko's
+ * arrangement. Each missing one by its name: the provider's registered name, `NO_DRAFTS` when nothing
+ * here provides the service (or the host cannot say), and "Factory".
  */
-const REVIEW_NEEDS = [
-  { id: REVIEW, name: 'Review' },
-  { id: FACTORY_ID, name: 'Factory' },
-] as const
-
-export function missingForReview(modules: readonly string[]): string[] {
-  return REVIEW_NEEDS.filter((one) => !modules.includes(one.id)).map((one) => one.name)
+export function missingForReview(modules: readonly string[], drafts: { name: string; placed: boolean | null } | null): string[] {
+  const missing: string[] = []
+  if (!drafts) missing.push(NO_DRAFTS)
+  else if (drafts.placed !== true) missing.push(drafts.name)
+  if (!modules.includes(FACTORY_ID)) missing.push('Factory')
+  return missing
 }
 
-/** "/review-factory needs Review and Factory on this kehikko; Review is missing." and what to do. */
-export function missingSaid(missing: readonly string[]): string {
+/** "/review-factory needs <the drafts' keeper> and Factory on this kehikko; <it> is missing." and what to do. */
+export function missingSaid(missing: readonly string[], drafts: string): string {
   const names = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)} are` : `${missing[0]} is`
-  return `/review-factory needs Review and Factory on this kehikko; ${names} missing.\nPut ${missing.join(' and ')} on that kehikko${missing.includes('Factory') ? ' (and open Factory there once)' : ''}, then try again.`
+  return `/review-factory needs ${drafts} and Factory on this kehikko; ${names} missing.\nPut ${missing.join(' and ')} on that kehikko${missing.includes('Factory') ? ' (and open Factory there once)' : ''}, then try again.`
 }
-
-const modulesOn = (root: string, kehikko: string | undefined): string[] => (kehikko ? readSeen(root).kehikkos[kehikko]?.modules ?? [] : [])
 
 /* ------------------------------------------------------------------ *
  * /review-factory …
@@ -200,7 +198,7 @@ function status(root: string): string {
 }
 
 async function startReview(root: string, words: string, session: string, needs: ReviewNeeds): Promise<string> {
-  const here = kehikkoCheck(root, session)
+  const here = await kehikkoCheck(root, session, needs)
   if (!here.ok) return stopped([here.why])
   const remote = needs.remote(root)
   let said = words
@@ -300,11 +298,12 @@ export async function gather(root: string, run0: Run, meta: Meta, needs: ReviewN
 
   let checklists: RunChecklist[] = []
   const notes: string[] = []
-  if (await needs.neighbours.present(CHECKLIST)) {
-    const held = await checklistsHeld(needs.neighbours, root, spellingsOf(target, remote))
-    if (held.trouble) notes.push(`Checklist could not be read: ${held.trouble.slice(0, 200)}`)
+  const holder = await needs.neighbours.find(CHECKLIST_HOLDER, { project: root })
+  if (holder) {
+    const held = await checklistsHeld(needs.neighbours, holder, root, spellingsOf(target, remote))
+    if (held.trouble) notes.push(`${holder.name} could not be read: ${held.trouble.slice(0, 200)}`)
     checklists = held.lists
-  } else notes.push('Checklist is not running here, so no checklist was read for this change.')
+  } else notes.push('No module here keeps checklists, so no checklist was read for this change.')
   if (run.round > 1 && checked.value.delta === '') notes.push('No new commits since the last review: this re-review checks only whether the listed points are met, and raises nothing new.')
   else if (run.round > 1 && checked.value.delta === null) notes.push('The head of the last review is not here any more (a force-push?), so this re-review reads the whole change and cannot tell new code from old.')
 
@@ -429,7 +428,7 @@ function ended(root: string, run: Run): string {
       `${run.id} — ${run.change.ref} "${run.change.title}": ${judged?.verdict ?? 'drafted'}${run.plan ? `, ${run.plan.door.kind}${run.plan.uiux.touches ? ', touches what people see' : ''}` : ''}.`,
       run.waiting.said,
       ...(judged?.pathToSuccess.length && judged.verdict !== 'approve' ? ['To get this approved:', ...numbered(judged.pathToSuccess)] : judged?.verdict === 'approve' ? ['Nothing blocks this change.'] : []),
-      ...(run.plan?.door.kind === 'one-way' ? [`One-way: read the decision briefing (${run.drafted?.briefing === 'paper' ? 'proposed in the epic\'s paper, and in the record' : 'in the record'}) before you send.`] : []),
+      ...(run.plan?.door.kind === 'one-way' ? [`One-way: read the decision briefing (${run.drafted?.briefing === 'paper' ? `proposed in the epic's document${run.drafted.briefingIn ? ` in ${run.drafted.briefingIn}` : ''}, and in the record` : 'in the record'}) before you send.`] : []),
       ...run.notes.slice(-4),
     ])
   }
@@ -550,7 +549,9 @@ export async function doneReview(report: ReviewReport, needs: ReviewNeeds): Prom
         adversaryCloses: run.closeVotes.adversary,
       })
       if (result.verdict === 'close' && !result.pathToSuccess.length && judgement.close) result.pathToSuccess = [judgement.close.instead]
-      const flows = modulesOn(root, run.place?.kehikko).includes(FLOWS) && (await needs.neighbours.present(FLOWS))
+      const kehikko = run.place?.kehikko
+      const writer = kehikko ? await needs.neighbours.find(DIAGRAM_WRITER, { project: root, kehikko }) : null
+      const flows = writer?.placed === true
       const drawable = flows && !!run.vision?.epic && !overBudget(run)
       const notes: string[] = []
       if (judgement.diagrams.length && !drawable) {
@@ -558,12 +559,12 @@ export async function doneReview(report: ReviewReport, needs: ReviewNeeds): Prom
           !run.vision?.epic
             ? 'The judge asked for a diagram, but this change is in no epic, so none was drawn.'
             : !flows
-              ? 'The judge asked for a diagram, but Flows is not on this kehikko, so the point is text only.'
+              ? 'The judge asked for a diagram, but no module on this kehikko draws diagrams, so the point is text only.'
               : 'The judge asked for a diagram, but the run is over its budget, so none was drawn.',
         )
       }
       if (run.plan?.door.kind !== 'two-way' && !text('briefing.md')) notes.push('This change is one-way, and the judge wrote no decision briefing.')
-      let moved = commit(root, run, { kind: 'judged', result, visionFit: judgement.visionFit, summary: judgement.summary, close: judgement.close ?? null, diagrams: judgement.diagrams, drawable }, needs)
+      let moved = commit(root, run, { kind: 'judged', result, visionFit: judgement.visionFit, summary: judgement.summary, close: judgement.close ?? null, diagrams: judgement.diagrams, drawable, drawer: drawable && writer ? { name: writer.name, tool: writer.descriptor.tool } : null }, needs)
       if (!moved.ok) return stopped([moved.error])
       run = moved.value
       for (const note of notes) {
@@ -703,59 +704,72 @@ export async function draft(root: string, run0: Run, needs: ReviewNeeds): Promis
     return moved
   }
   const notes: string[] = []
-  if (!now.ok) notes.push(`The head could not be read again before drafting (${now.why.slice(0, 160)}); drafted against ${run.pinned?.head.slice(0, 10)}, which Review checks itself.`)
+  if (!now.ok) notes.push(`The head could not be read again before drafting (${now.why.slice(0, 160)}); drafted against ${run.pinned?.head.slice(0, 10)}, which the draft's keeper checks itself.`)
   const n = needs.neighbours
-  const review = await n.present(REVIEW)
+  const review = await n.find(REVIEW_DRAFTS, { project: root, ...(run.place?.kehikko ? { kehikko: run.place.kehikko } : {}) })
   let drafted = { comments: 0, refused: [] as { point: string; why: string }[], proposal: false, notes: [] as string[] }
   if (review) {
     const earlier = listRuns(root).filter((one) => one.change.url === run.change.url && one.id !== run.id).map((one) => one.id)
-    drafted = await draftToReview(n, root, withDiagramLinks(run), earlier)
-  } else notes.push('Review is not running here, so nothing was drafted there: the result is in this record only.')
+    drafted = await draftToReview(n, review, root, withDiagramLinks(run), earlier)
+  } else notes.push('No module here keeps draft reviews, so nothing was drafted: the result is in this record only.')
   let ticks = 0
-  if (run.answers.length && (await n.present(CHECKLIST))) {
+  const holder = run.answers.length ? await n.find(CHECKLIST_HOLDER, { project: root }) : null
+  if (holder) {
     const ref = spellingsOf(target, needs.remote(root))[0] ?? run.change.ref
-    const set = await setStates(n, root, run.change.ref || ref, run)
+    const set = await setStates(n, holder, root, run.change.ref || ref, run)
     ticks = set.set
     notes.push(...set.notes)
   }
   let briefing: 'none' | 'record' | 'paper' = 'none'
+  let briefingIn: string | null = null
   const briefingText = readRecord(root, run.id, 'briefing.md')
   if (run.plan?.door.kind !== 'two-way' && briefingText.ok && briefingText.value) {
     briefing = 'record'
     const epic = run.vision?.epic
-    const paperDir = epic ? moduleDir(root, PAPER) : null
-    const hasPaper = !!epic && !!paperDir && existsSync(join(paperDir, epic, 'main.tex'))
-    if (hasPaper && (await n.present(PAPER))) {
-      const proposed = await proposeBriefing(n, root, epic!, `${run.change.ref} ${run.change.title}`, briefingText.value)
-      if (proposed.ok) briefing = 'paper'
-      else notes.push(`Paper did not take the briefing (${proposed.text.slice(0, 160)}); it is in the record.`)
-    } else notes.push(epic ? 'The epic has no paper, so the decision briefing is in the record only. Factory does not create a paper.' : 'This change is in no epic, so the decision briefing is in the record only.')
+    const document = epic ? await n.find(DOCUMENT_PROPOSALS, { project: root }) : null
+    const hasDocument = !!epic && !!document && existsSync(join(root, documentRoot(document.descriptor, epic), document.descriptor.main))
+    if (hasDocument) {
+      const proposed = await proposeBriefing(n, document!, root, epic!, `${run.change.ref} ${run.change.title}`, briefingText.value)
+      if (proposed.ok) {
+        briefing = 'paper'
+        briefingIn = document!.name
+      } else notes.push(`${document!.name} did not take the briefing (${proposed.text.slice(0, 160)}); it is in the record.`)
+    } else {
+      notes.push(
+        !epic
+          ? 'This change is in no epic, so the decision briefing is in the record only.'
+          : document
+            ? `The epic has no document in ${document.name}, so the decision briefing is in the record only. Factory does not create one.`
+            : 'No module here keeps a document per epic, so the decision briefing is in the record only.',
+      )
+    }
   }
   const left = removeCheckout(root, run.id, run.checkout?.path ?? null)
   if (left) notes.push(left)
 
-  /* The send without the person: only two-way, no UI/UX, the switch on, and Review agreeing. */
+  /* The send without the person: only two-way, no UI/UX, the switch on, and the draft's keeper agreeing. */
   let sent = false
   const settings = settingsOf(root)
   if (review && drafted.proposal && settings.postTwoWay) {
     if (run.plan?.door.kind !== 'two-way') notes.push('Not posted by Factory: this change is one-way, so it waits for you.')
     else if (run.plan.uiux.touches) notes.push('Not posted by Factory: it touches what people see, so it waits for you.')
     else {
-      const key = needs.key()
-      if (!key) notes.push('Not posted by Factory: Review has not made its key for Factory yet. Send it yourself from Review.')
+      const route = review.descriptor.send
+      if (!route) notes.push(`Not posted: ${review.name} takes no sends from modules. Send it yourself from ${review.name}.`)
       else {
-        const answer = await n.send({ project: root, change: run.change.url, run: run.id }, key)
+        const answer = await n.send(review.module, route, { project: root, change: run.change.url, run: run.id })
         if (answer.status === 200) sent = true
-        else notes.push(`Review did not send it: ${sentenceOf(answer.text)}`)
+        else notes.push(`${review.name} did not send it: ${sentenceOf(answer.text)}`)
       }
     }
   }
   const all = [...drafted.notes, ...notes]
-  writeRecord(root, run.id, 'draft.md', draftText(run, drafted, ticks, briefing, all, sent))
-  return commit(root, run, { kind: 'drafted', drafted: { at: needs.now(), comments: drafted.comments, refused: drafted.refused, proposal: drafted.proposal, ticks, briefing }, notes: all, sent }, needs)
+  const where = { drafts: review?.name ?? null, checklists: holder?.name ?? null }
+  writeRecord(root, run.id, 'draft.md', draftText(run, drafted, ticks, briefing, all, sent, where))
+  return commit(root, run, { kind: 'drafted', drafted: { at: needs.now(), comments: drafted.comments, refused: drafted.refused, proposal: drafted.proposal, ticks, briefing, in: where.drafts, briefingIn }, notes: all, sent }, needs)
 }
 
-/** A refusal's sentence out of Review's answer (JSON with `error`, or text). */
+/** A refusal's sentence out of the draft keeper's answer (JSON with `error`, or text). */
 function sentenceOf(text: string): string {
   try {
     const body = JSON.parse(text) as { error?: unknown; said?: unknown }
@@ -766,31 +780,32 @@ function sentenceOf(text: string): string {
   return text.slice(0, 400) || 'no reason given.'
 }
 
-/** A point the judge asked to draw links to its flows. */
+/** A point the judge asked to draw links to its diagrams, in the module that drew them. */
 function withDiagramLinks(run: Run): Run {
   if (!run.diagrams.length) return run
   return {
     ...run,
     points: run.points.map((point) => {
       const flows = run.diagrams.filter((one) => one.point === point.id).map((one) => one.flow)
-      return flows.length ? { ...point, suggestion: `${point.suggestion} Drawn in Flows (epic ${run.vision?.epic}): ${flows.join(', ')}.`.slice(0, 600) } : point
+      return flows.length ? { ...point, suggestion: `${point.suggestion} Drawn in ${run.drawer?.name ?? 'a diagram'} (epic ${run.vision?.epic}): ${flows.join(', ')}.`.slice(0, 600) } : point
     }),
   }
 }
 
-function draftText(run: Run, drafted: { comments: number; refused: { point: string; why: string }[]; proposal: boolean }, ticks: number, briefing: string, notes: string[], sent: boolean): string {
+function draftText(run: Run, drafted: { comments: number; refused: { point: string; why: string }[]; proposal: boolean }, ticks: number, briefing: string, notes: string[], sent: boolean, where: { drafts: string | null; checklists: string | null }): string {
   const judged = run.judged
+  const drafts = where.drafts ?? 'no draft review'
   return `${[
     '# Draft',
     '',
     `Verdict: ${judged?.verdict ?? 'none'}. ${run.plan ? `${run.plan.door.kind} (${run.plan.door.reasons.join(' ')})` : ''}${run.plan?.uiux.touches ? ' Touches what people see.' : ''}`,
     '',
-    `${drafted.comments} comment${drafted.comments === 1 ? '' : 's'} drafted in Review; the summary and verdict ${drafted.proposal ? 'proposed beside yours' : 'not proposed'}. ${ticks} checklist answer${ticks === 1 ? '' : 's'} set in Checklist. Briefing: ${briefing}.`,
-    sent ? 'Posted by Factory, as the project\'s switch allows for a two-way change.' : 'Nothing was posted: you read it in Review and send it yourself.',
+    `${drafted.comments} comment${drafted.comments === 1 ? '' : 's'} drafted in ${drafts}; the summary and verdict ${drafted.proposal ? 'proposed beside yours' : 'not proposed'}. ${ticks} checklist answer${ticks === 1 ? '' : 's'} set${where.checklists ? ` in ${where.checklists}` : ''}. Briefing: ${briefing}.`,
+    sent ? 'Posted by Factory, as the project\'s switch allows for a two-way change.' : `Nothing was posted: you read it${where.drafts ? ` in ${where.drafts}` : ''} and send it yourself.`,
     '',
     ...(judged ? ['## Rulings', '', ...judged.rulings.map((one) => `- ${one.point}: ${one.ruling} — ${one.reason}`), ''] : []),
     ...(judged?.pathToSuccess.length ? ['## To get this approved', '', ...numbered(judged.pathToSuccess), ''] : []),
-    ...(drafted.refused.length ? ['## Refused by Review', '', ...drafted.refused.map((one) => `- ${one.point}: ${one.why}`), ''] : []),
+    ...(drafted.refused.length ? [`## Refused by ${drafts}`, '', ...drafted.refused.map((one) => `- ${one.point}: ${one.why}`), ''] : []),
     ...(notes.length ? ['## Notes', '', ...notes.map((one) => `- ${one}`), ''] : []),
     ...(run.rejected.length ? ['## What the review did not get to, or refused', '', ...run.rejected.map((one) => `- (${one.angle}) ${one.point} — ${one.why}`), ''] : []),
   ].join('\n')}\n`
@@ -811,7 +826,7 @@ async function resumeSaid(root: string, said: string, session: string, needs: Re
   if (!found.ok) return stopped([found.error])
   let run = found.value
   if (!run.background) {
-    const here = kehikkoCheck(root, session)
+    const here = await kehikkoCheck(root, session, needs)
     if (!here.ok) return stopped([here.why])
   }
   if (run.waiting?.why === 'checklist') return ended(root, run)
@@ -866,16 +881,17 @@ async function checklistSaid(root: string, said: string, what: string, session: 
   if (!done.ok) return stopped([done.error])
   const claimed = commit(root, done.value, { kind: 'claim', session }, needs)
   if (!claimed.ok) return stopped([claimed.error])
-  return nextFor(root, claimed.value, session, needs, null, null, ['The checklist is made in Checklist and held against the change. The reviewers start now.'])
+  return nextFor(root, claimed.value, session, needs, null, null, ['The checklist is made and held against the change. The reviewers start now.'])
 }
 
-/** The person's checklist (the proposal, or their edit of it), made in Checklist and split between the reviewers. */
+/** The person's checklist (the proposal, or their edit of it), made by the checklist holder and split between the reviewers. */
 export async function acceptChecklist(root: string, run: Run, edited: string[] | null, needs: ReviewNeeds): Promise<Result<Run>> {
   if (run.waiting?.why !== 'checklist' || !run.proposed) return { ok: false, error: 'No proposed checklist is waiting for you on this review.' }
   const items = (edited ?? run.proposed).map((one) => one.slice(0, 200)).filter(Boolean).slice(0, 15)
   if (!items.length) return { ok: false, error: 'A checklist needs at least one item.' }
-  if (!(await needs.neighbours.present(CHECKLIST))) return { ok: false, error: 'Checklist is not running here, so the list cannot be made. Start Checklist, then accept again.' }
-  const made = await createChecklist(needs.neighbours, root, run.change.ref, `What ${run.change.ref} owes before it lands`, items)
+  const holder = await needs.neighbours.find(CHECKLIST_HOLDER, { project: root })
+  if (!holder) return { ok: false, error: 'No module here keeps checklists, so the list cannot be made. Start one that does, then accept again.' }
+  const made = await createChecklist(needs.neighbours, holder, root, run.change.ref, `What ${run.change.ref} owes before it lands`, items)
   if (!made.ok) return { ok: false, error: made.why }
   const angles = (run.plan?.angles ?? []).map((one) => ({ ...one, items: [] as string[] }))
   made.list.items.forEach((item, i) => angles[i % Math.max(1, angles.length)]?.items.push(`${made.list.id}/${item.id}`))

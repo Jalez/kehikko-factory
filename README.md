@@ -97,20 +97,20 @@ job: those are yours.
 ```
 
 Or select the change on the canvas and type just `/review-factory`. It is offered only in a
-conversation on a kehikko that has both Review and Factory on it (it drafts into Review), and says
-which is missing if you type it elsewhere. It reviews pull and merge requests only — to review your own work first, open
+conversation on a kehikko that has Factory and a module that keeps your draft reviews (it drafts
+into that one, found by the `review.drafts` service, never by name), and says which is missing if you type it elsewhere. It reviews pull and merge requests only — to review your own work first, open
 a draft.
 
 A panel works on it, and Factory checks every step:
 
 1. **Gather.** The change at one pinned head, checked out in a worktree of its own (your project is
    never switched), its description and commits, the epic it belongs to — its lede, its parts, and
-   from Journeys its goal, appetite, rabbit holes and no-gos — and the checklists held against it.
+   from the host its goal, appetite, rabbit holes and no-gos — and the checklists held against it.
    A budget sized to the change, which you can change before and during the run.
 2. **Plan.** Two angles chosen for *this* change, each with the practices that apply and their
    sources. The checklist is split between the two reviewers. No checklist? The planner proposes
-   one, and the review waits for you to accept or edit it; it is then made in Checklist and held
-   against the change. The planner also says whether the change is **one-way** (hard to undo) or
+   one, and the review waits for you to accept or edit it; it is then made in the module that keeps
+   your checklists (`checklist.holder`) and held against the change. The planner also says whether the change is **one-way** (hard to undo) or
    **two-way**, with reasons — your project's rules first ("anything under `migrations/` is
    one-way"), and when in doubt, one-way — and whether it touches what people see.
 3. **Review.** Two reviewers at once. Every point is anchored to the lines that show it, quotes
@@ -125,15 +125,17 @@ A panel works on it, and Factory checks every step:
    fit with the epic in one sentence, the verdict, a summary that fits on a screen, and — whenever
    it does not approve — **"To get this approved:"**, exactly the required points. When nothing
    blocks, it says so. Closing a change takes the whole panel agreeing.
-7. **Draft** (Factory, no agent). The kept points become draft comments in Review, with their
+7. **Draft** (Factory, no agent). The kept points become draft comments in your draft review, with their
    evidence, the challenge and the ruling; the summary and verdict are proposed beside yours, never
-   over them; the checklist answers are set in Checklist as Factory's — never over a tick you set.
-   A diagram the judge asks for is drawn in Flows, in the change's epic. A one-way change also gets
+   over them; the checklist answers are set in your checklists as Factory's — never over a tick you set.
+   A diagram the judge asks for is drawn by the module on the kehikko that draws diagrams
+   (`diagram.writer`), in the change's epic. A one-way change also gets
    a **decision briefing** — the decisions, the alternatives, what cannot be undone, and what to try
-   yourself — in the record, and as a suggested section of the epic's paper when it has one.
+   yourself — in the record, and as a proposed section of the epic's document when it has one (`document.proposals`).
 
-Nothing is posted until you send it from Review. The one exception is yours to turn on: *Post
-two-way reviews by myself* sends a two-way change that touches nothing people see. A one-way change
+Nothing is posted until you send it yourself. The one exception is yours to turn on: *Post
+two-way reviews by myself* sends a two-way change that touches nothing people see, through the draft keeper's `send`, which takes it
+only from Factory's server proving who it is. A one-way change
 and anything with UI/UX always wait for you, and a UI/UX change without before and after pictures
 gets a required point naming the screens.
 
@@ -168,7 +170,10 @@ steer or send a review.
 
 Install Factory from Kehikot's module list, then install the `/factory` skill from the Skills
 window. `/review-factory` is not installed for every conversation: a conversation started from a
-kehikko with Review and Factory on it has it.
+kehikko with Factory and a module that keeps your draft reviews has it.
+
+Factory provides `work.status`: any module showing an issue can read the stage of Factory's jobs for
+it at `GET /api/jobs?ref=<ref>&projectPath=…`.
 
 Everything Factory keeps is in your project under `.kehikot/factory/` (reviews under
 `.kehikot/factory/reviews/<id>/`); the code it builds sits in `../<project>-factory/<job>/` until it

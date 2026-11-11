@@ -3,13 +3,14 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { git } from '../git.ts'
-import { actReview, doneReview, missingForReview, missingSaid, pageRows, pageSaw, sayReview, type ReviewNeeds } from '../review-factory.ts'
+import { actReview, doneReview, missingForReview, missingSaid, NO_DRAFTS, pageRows, pageSaw, sayReview, type ReviewNeeds } from '../review-factory.ts'
 import { readRun, recordFiles, listRuns, writeRun } from '../rev/store.ts'
-import { CHECKLIST, REVIEW, type Neighbours } from '../rev/neighbours.ts'
+import type { Neighbours } from '../rev/neighbours.ts'
 import type { Run } from '../rev/shape.ts'
 import type { Run as CliRun } from '../tracker.ts'
 import { scratchForge, write } from './repo.ts'
-import { standIn } from './stand-ins.ts'
+import { CHECKLIST, DOCUMENT, DRAFTS, REVIEW, standIn, WRITER } from './stand-ins.ts'
+import type { HostAsk } from '../rev/vision.ts'
 
 const SESSION = 'session-review-0001'
 let forge: ReturnType<typeof scratchForge> | null = null
@@ -32,12 +33,14 @@ function gh(head: () => string, over: Record<string, unknown> = {}): CliRun {
   }
 }
 
-function setUp(opts: { n?: Neighbours; cli?: CliRun; modules?: string[]; key?: string | null; spawned?: unknown[] } = {}) {
+function setUp(opts: { n?: Neighbours; cli?: CliRun; modules?: string[]; spawned?: unknown[] } = {}) {
   forge = scratchForge()
   const root = forge.root
   const head = forge.head
   write(join(root, '.kehikot', 'claude', 'places.json'), JSON.stringify({ places: { here: { epic: 'greetings', kehikko: { key: 'k1' }, sessions: [SESSION] } } }))
-  pageSaw(root, { kehikko: 'k1', modules: opts.modules ?? ['kehikot.factory', REVIEW, CHECKLIST], selection: ['gh#7'] })
+  const modules = opts.modules ?? ['kehikot.factory', REVIEW, CHECKLIST]
+  /* What the page saw on the kehikko, and what the host says is placed there: the same modules. */
+  pageSaw(root, { kehikko: 'k1', modules, selection: ['gh#7'] })
   let tick = 0
   const needs: ReviewNeeds = {
     resolve: async (folder) => (folder === root ? { ok: true, path: root } : { ok: false, why: `${folder} is not a project open in Kehikot.` }),
@@ -46,8 +49,7 @@ function setUp(opts: { n?: Neighbours; cli?: CliRun; modules?: string[]; key?: s
     suffix: () => 'a1b2',
     remote: () => ({ kind: 'github', repo: 'me/app' }),
     cli: opts.cli ?? gh(() => head),
-    neighbours: opts.n ?? standIn().n,
-    key: () => (opts.key === undefined ? null : opts.key),
+    neighbours: opts.n ?? standIn({}, { on: modules }).n,
     spawner: async (program, args, cwd) => {
       opts.spawned?.push([program, args, cwd])
       return { ok: true }
@@ -136,7 +138,7 @@ describe('/review-factory refuses, in plain words', () => {
   })
 })
 
-describe('/review-factory needs Review and Factory on its kehikko', () => {
+describe('/review-factory needs the drafts provider and Factory on its kehikko', () => {
   test('a kehikko without Review: refused, naming Review, and no review is started', async () => {
     const { root, needs } = setUp({ modules: ['kehikot.factory', CHECKLIST] })
     const said = await say(needs, root)
@@ -150,10 +152,23 @@ describe('/review-factory needs Review and Factory on its kehikko', () => {
     expect(await say(needs, root)).toContain('/review-factory needs Review and Factory on this kehikko; Review and Factory are missing.')
   })
 
+  test('nothing provides review.drafts: refused in general words', async () => {
+    const { root, needs } = setUp({ n: standIn({}, { providers: { 'review.drafts': null } }).n })
+    const said = await say(needs, root)
+    expect(said).toContain(`/review-factory needs ${NO_DRAFTS} and Factory on this kehikko; ${NO_DRAFTS} is missing.`)
+    expect(listRuns(root)).toEqual([])
+  })
+
+  test('the provider is called by its own name, whatever it is', async () => {
+    const { root, needs } = setUp({ modules: ['kehikot.factory'], n: standIn({}, { providers: { 'review.drafts': { ...DRAFTS, module: 'some.drafts', name: 'Drafts' } }, on: ['kehikot.factory'] }).n })
+    expect(await say(needs, root)).toContain('/review-factory needs Drafts and Factory on this kehikko; Drafts is missing.')
+  })
+
   test('the words, on their own', () => {
-    expect(missingForReview(['kehikot.factory', REVIEW])).toEqual([])
-    expect(missingForReview(['kehikot.factory'])).toEqual(['Review'])
-    expect(missingSaid(['Review']).split('\n')[0]).toBe('/review-factory needs Review and Factory on this kehikko; Review is missing.')
+    expect(missingForReview(['kehikot.factory'], { name: 'Review', placed: true })).toEqual([])
+    expect(missingForReview(['kehikot.factory'], { name: 'Review', placed: false })).toEqual(['Review'])
+    expect(missingForReview([], null)).toEqual([NO_DRAFTS, 'Factory'])
+    expect(missingSaid(['Review'], 'Review').split('\n')[0]).toBe('/review-factory needs Review and Factory on this kehikko; Review is missing.')
   })
 })
 
@@ -284,14 +299,10 @@ describe('the person\'s choices', () => {
 })
 
 describe('posting without the person', () => {
-  async function finished(opts: { plan?: Record<string, unknown>; postTwoWay: boolean; key?: string | null }) {
-    const stand = standIn()
-    const sent: unknown[] = []
-    stand.n.send = async (body, key) => {
-      sent.push({ body, key })
-      return { status: 200, text: '{"ok":true}' }
-    }
-    const { root, needs } = setUp({ n: stand.n, key: opts.key === undefined ? 'a'.repeat(64) : opts.key })
+  async function finished(opts: { plan?: Record<string, unknown>; postTwoWay: boolean; noSend?: boolean }) {
+    const stand = standIn({}, opts.noSend ? { providers: { 'review.drafts': { ...DRAFTS, descriptor: { name: 'Review', tools: DRAFTS.descriptor.tools } } } } : {})
+    const sent = stand.sends
+    const { root, needs } = setUp({ n: stand.n })
     expect((await actReview(root, { act: 'review-settings', settings: { postTwoWay: opts.postTwoWay } }, needs)).ok).toBe(true)
     await say(needs, root)
     agentsDo(root, runOf(root), { plan: opts.plan })
@@ -300,14 +311,14 @@ describe('posting without the person', () => {
     return { run: runOf(root), sent }
   }
 
-  test('two-way, no UI/UX, the switch on: Factory sends it through Review with the key', async () => {
+  test('two-way, no UI/UX, the switch on: Factory sends it to the route the drafts provider names', async () => {
     const { run, sent } = await finished({ postTwoWay: true })
     expect(run.stage).toBe('sent')
     expect(run.sent?.by).toBe('factory')
-    expect(sent).toEqual([{ body: { project: expect.any(String), change: 'https://github.com/me/app/pull/7', run: 'app-7-a1b2' }, key: 'a'.repeat(64) }])
+    expect(sent).toEqual([{ module: DRAFTS.module, path: '/api/factory/send', body: { project: expect.any(String), change: 'https://github.com/me/app/pull/7', run: 'app-7-a1b2' } }])
   })
 
-  test('the switch off, a one-way change, a UI/UX change, or no key: it waits for the person', async () => {
+  test('the switch off, a one-way change, a UI/UX change, or a provider that takes no sends: it waits for the person', async () => {
     expect((await finished({ postTwoWay: false })).sent).toEqual([])
     const oneWay = await finished({ postTwoWay: true, plan: { door: { kind: 'one-way', reasons: ['A migration.'] } } })
     expect(oneWay.sent).toEqual([])
@@ -316,15 +327,15 @@ describe('posting without the person', () => {
     const ui = await finished({ postTwoWay: true, plan: { uiux: { touches: true, reason: 'The greeting is shown.', screens: ['home'] } } })
     expect(ui.sent).toEqual([])
     expect(ui.run.judged?.pathToSuccess[0]).toMatch(/^Add before and after pictures of: home\./)
-    const keyless = await finished({ postTwoWay: true, key: null })
-    expect(keyless.sent).toEqual([])
-    expect(keyless.run.notes.join(' ')).toContain('has not made its key')
+    const sendless = await finished({ postTwoWay: true, noSend: true })
+    expect(sendless.sent).toEqual([])
+    expect(sendless.run.notes).toContain('Not posted: Review takes no sends from modules. Send it yourself from Review.')
   })
 
   test('a refusal from Review is said on the card', async () => {
     const stand = standIn()
     stand.n.send = async () => ({ status: 409, text: JSON.stringify({ ok: false, error: 'The change is not open.' }) })
-    const { root, needs } = setUp({ n: stand.n, key: 'b'.repeat(64) })
+    const { root, needs } = setUp({ n: stand.n })
     await actReview(root, { act: 'review-settings', settings: { postTwoWay: true } }, needs)
     await say(needs, root)
     await runToRest(needs, root, { required: false })
@@ -426,5 +437,114 @@ describe('again: re-runs and re-reviews', () => {
     agentsDo(root, reviewing)
     await report(needs, root, reviewing)
     expect(runOf(root, 'app-7-c3d4').rejected.some((one) => one.why.includes('not about new code'))).toBe(true)
+  })
+})
+
+describe('the services a review writes into, each by what its descriptor says', () => {
+  /** A host that knows one epic, greetings, holding gh#7. */
+  const ask: HostAsk = async (method) => {
+    const answer = (data: unknown) => ({ ok: true as const, data: data as never })
+    if (method === 'epics.list') return answer({ epics: [{ slug: 'greetings', title: 'Greetings' }] })
+    if (method === 'epic.get') return answer({ slug: 'greetings', title: 'Greetings', umbrella: 'gh#7' })
+    if (method === 'steps.list') return answer({ steps: [], providers: [] })
+    if (method === 'parts.get') return answer({ parts: [] })
+    return { ok: false, why: `not answered here: ${method}` }
+  }
+
+  async function toJudging(stand: ReturnType<typeof standIn>, plan: Record<string, unknown> = {}) {
+    const { root, needs } = setUp({ n: stand.n })
+    needs.ask = ask
+    await say(needs, root)
+    for (let i = 0; i < 6 && runOf(root).stage !== 'judging'; i++) {
+      agentsDo(root, runOf(root), { plan })
+      await report(needs, root, runOf(root))
+    }
+    expect(runOf(root).stage).toBe('judging')
+    expect(runOf(root).vision?.epic).toBe('greetings')
+    return { root, needs }
+  }
+
+  const judgeAsking = (root: string, run: Run) =>
+    write(
+      join(dir(root, run.id), 'judgement.md'),
+      fenced({ rulings: run.points.map((one) => ({ point: one.id, ruling: 'required', reason: 'A bug.' })), verdict: 'request-changes', visionFit: 'Fits.', summary: 'One fix.', diagrams: [{ point: 'p1', kind: 'sequence', now: 'a then b', proposed: 'b then a' }] }),
+    )
+
+  test('a diagram is drawn by the writer placed on the kehikko, named and called as its descriptor says', async () => {
+    const stand = standIn({}, { providers: { 'diagram.writer': { ...WRITER, module: 'some.charts', name: 'Charts', descriptor: { name: 'Charts', tool: 'draw_it', kinds: ['sequence'] } } } })
+    const { root, needs } = await toJudging(stand)
+    judgeAsking(root, runOf(root))
+    const said = await report(needs, root, runOf(root))
+    expect(runOf(root).stage).toBe('diagrams')
+    expect(runOf(root).drawer).toEqual({ name: 'Charts', tool: 'draw_it' })
+    expect(said).toContain("with Charts's `draw_it` tool")
+    expect(stand.finds).toContainEqual({ service: 'diagram.writer', project: root, kehikko: 'k1' })
+    write(join(dir(root, 'app-7-a1b2'), 'diagrams.md'), '- p1: app-7-a1b2-review-p1-now\n')
+    await report(needs, root, runOf(root))
+    const comment = stand.calls.find((one) => one.tool === 'add_comment')!
+    expect(String(comment.args.body)).toContain('Drawn in Charts (epic greetings): app-7-a1b2-review-p1-now.')
+  })
+
+  test('a writer that is not on the kehikko, or none at all: the point is text only, said without a name', async () => {
+    for (const options of [{ on: ['kehikot.factory', REVIEW, CHECKLIST] }, { providers: { 'diagram.writer': null } }]) {
+      const stand = standIn({}, options)
+      const { root, needs } = await toJudging(stand)
+      judgeAsking(root, runOf(root))
+      await report(needs, root, runOf(root))
+      expect(runOf(root).stage).toBe('waiting')
+      expect(runOf(root).drawer).toBeNull()
+      expect(runOf(root).notes).toContain('The judge asked for a diagram, but no module on this kehikko draws diagrams, so the point is text only.')
+      forge?.done()
+      forge = null
+    }
+  })
+
+  test('a one-way briefing is proposed in the epic\'s document, at the folder and main file the descriptor names', async () => {
+    const stand = standIn({}, { providers: { 'document.proposals': { ...DOCUMENT, module: 'some.doc', name: 'Doc', descriptor: { ...DOCUMENT.descriptor, name: 'Doc', root: 'writing/{epic}', main: 'index.md', tools: { ...DOCUMENT.descriptor.tools, propose: 'suggest' } } } } })
+    const { root, needs } = await toJudging(stand, { door: { kind: 'one-way', reasons: ['A migration.'] } })
+    write(join(root, 'writing', 'greetings', 'index.md'), '\\end{document}\n')
+    agentsDo(root, runOf(root), { plan: { door: { kind: 'one-way', reasons: ['A migration.'] } } })
+    const said = await report(needs, root, runOf(root))
+    const proposed = stand.calls.find((one) => one.id === 'some.doc')!
+    expect(proposed.tool).toBe('suggest')
+    expect(proposed.args).toMatchObject({ project: root, epic: 'greetings', find: '\\end{document}' })
+    expect(runOf(root).drafted).toMatchObject({ briefing: 'paper', briefingIn: 'Doc', in: 'Review' })
+    expect(said).toContain("proposed in the epic's document in Doc")
+  })
+
+  test('no document for the epic, or nothing that keeps one: the briefing is in the record, said so', async () => {
+    const plan = { door: { kind: 'one-way', reasons: ['A migration.'] } }
+    const none = standIn({}, { providers: { 'document.proposals': null } })
+    let { root, needs } = await toJudging(none, plan)
+    agentsDo(root, runOf(root), { plan })
+    await report(needs, root, runOf(root))
+    expect(runOf(root).drafted?.briefing).toBe('record')
+    expect(runOf(root).notes).toContain('No module here keeps a document per epic, so the decision briefing is in the record only.')
+    forge?.done()
+    forge = null
+    const fileless = standIn()
+    ;({ root, needs } = await toJudging(fileless, plan))
+    agentsDo(root, runOf(root), { plan })
+    await report(needs, root, runOf(root))
+    expect(runOf(root).notes).toContain('The epic has no document in Paper, so the decision briefing is in the record only. Factory does not create one.')
+    expect(fileless.calls.some((one) => one.id === DOCUMENT.module)).toBe(false)
+  })
+
+  test('nothing keeps draft reviews or checklists: nothing is drafted or read, and the card says so in general words', async () => {
+    const stand = standIn({}, { providers: { 'checklist.holder': null } })
+    const { root, needs } = setUp({ n: stand.n })
+    await say(needs, root)
+    expect(runOf(root).notes).toContain('No module here keeps checklists, so no checklist was read for this change.')
+    expect(stand.calls.some((one) => one.id === CHECKLIST)).toBe(false)
+    const drafting = runOf(root)
+    const lost = standIn({}, { providers: { 'review.drafts': null } })
+    needs.neighbours = lost.n
+    const { draft } = await import('../review-factory.ts')
+    const done = await draft(root, { ...drafting, judged: { rulings: [], verdict: 'approve', visionFit: '', summary: 's', pathToSuccess: [], close: null, diagrams: [], notes: [] }, stage: 'judging' }, needs)
+    expect(done.ok).toBe(true)
+    if (!done.ok) return
+    expect(done.value.notes).toContain('No module here keeps draft reviews, so nothing was drafted: the result is in this record only.')
+    expect(done.value.waiting?.said).toBe('No module here keeps draft reviews, so the result is in this record only.')
+    expect(lost.calls).toEqual([])
   })
 })
