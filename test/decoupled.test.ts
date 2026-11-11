@@ -38,7 +38,9 @@ describe('no module names another', () => {
         if (inBlock && line.includes('*/')) inBlock = false
         return !was && !/^\s*(\/\*|\*|\/\/)/.test(line) && !/^\s*import /.test(line)
       })
-      expect(lines.filter((line) => ids.test(line))).toEqual([])
+      /* skills.ts: a skill's `needs` cannot name a service yet, so the one id it needs is spelled once
+         there (SKILL_NEEDS_DRAFTS, and test/no-neighbours.test.ts holds it to that one line). */
+      expect(lines.filter((line) => ids.test(line) && !(file === 'skills.ts' && /^const SKILL_NEEDS_DRAFTS = /.test(line)))).toEqual([])
     }
   })
 })

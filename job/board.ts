@@ -11,7 +11,7 @@ import type { Job, Stage } from './shape.ts'
  * (`.kehikot/factory/settings.json`), choosing from the boards and columns the host read
  * (`tracker.columns`, protocol 2.6.0) or, when the host has none, from what the person's own
  * `gh`/`glab` finds. The mapping is by NAME: the board's title and each column's name, as the host's
- * tracker reading says them, so Journeys and Flows (which read the issue's column from the host) and
+ * tracker reading says them, so other modules (which read the issue's column from the host) and
  * this module agree. A stage may map to no column: then its issue is not moved. A guess is offered
  * for the person to confirm; nothing moves until they have.
  *

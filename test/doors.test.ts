@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { WORK_STATUS, serviceDescriptor, workJobsIn } from 'kehikot-module-protocol'
 
-import { TICKET, answer, setHostResolve, setNeeds } from '../doors.ts'
+import { MANIFEST, TICKET, answer, setHostResolve, setNeeds } from '../doors.ts'
 import { scratchRepo, testNeeds } from './repo.ts'
 
 let repo: ReturnType<typeof scratchRepo>
@@ -60,6 +61,17 @@ describe('the doors', () => {
     expect(found.map((one) => [one.id, one.ref, one.stage])).toEqual([['make-the-greeting-shout-a1b2', 'jalez/app#7', 'spec']])
     expect(Object.keys(found[0]!).sort()).toEqual(Object.keys(jobs[0]!).sort())
     expect(Object.keys(byRef?.body as object)).toEqual(['jobs'])
+  })
+
+  test('work.status: the route the descriptor names answers what workJobsIn reads, a job each', async () => {
+    const route = serviceDescriptor(WORK_STATUS, MANIFEST.services?.[WORK_STATUS])!.jobs
+    const byRef = await answer('GET', route, q({ ref: 'https://github.com/jalez/app/issues/7', projectPath: repo.root }), null, null)
+    const raw = (byRef?.body as { jobs: unknown[] }).jobs
+    const jobs = workJobsIn(JSON.parse(JSON.stringify(byRef?.body)))
+    expect(raw.length).toBe(1)
+    expect(jobs.length).toBe(raw.length)
+    expect(jobs[0]).toMatchObject({ id: 'make-the-greeting-shout-a1b2', ref: 'jalez/app#7', stage: 'spec' })
+    expect(workJobsIn((await answer('GET', route, q({ ref: 'jalez/app#8', projectPath: repo.root }), null, null))?.body)).toEqual([])
   })
 
   test('GET /api/jobs?ref= needs no ticket, reads only, and only for a project the host holds', async () => {

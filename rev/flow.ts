@@ -38,9 +38,9 @@ export type RunEvent =
       notes: string[]
     }
   | { kind: 'challenged'; challenges: Run['challenges']; adversaryCloses: boolean }
-  | { kind: 'judged'; result: PanelResult; visionFit: string; summary: string; close: { why: string; instead: string } | null; diagrams: NonNullable<Run['judged']>['diagrams']; drawable: boolean }
+  | { kind: 'judged'; result: PanelResult; visionFit: string; summary: string; close: { why: string; instead: string } | null; diagrams: NonNullable<Run['judged']>['diagrams']; drawable: boolean; drawer?: Run['drawer'] }
   | { kind: 'diagrammed'; diagrams: Run['diagrams']; notes: string[] }
-  | { kind: 'drafted'; drafted: NonNullable<Run['drafted']>; notes: string[]; sent: boolean }
+  | { kind: 'drafted'; drafted: Omit<NonNullable<Run['drafted']>, 'in' | 'briefingIn'> & Partial<Pick<NonNullable<Run['drafted']>, 'in' | 'briefingIn'>>; notes: string[]; sent: boolean }
   | { kind: 'sent'; by: 'factory' | 'person' }
   | { kind: 'moved-on'; head: string }
   | { kind: 'stop'; why: string }
@@ -86,6 +86,7 @@ export function newRun(input: { id: string; change: Change; session: string | nu
     judged: null,
     general: [],
     diagrams: [],
+    drawer: null,
     drafted: null,
     sent: null,
     waiting: null,
@@ -169,7 +170,7 @@ export function advanceRun(run: Run, event: RunEvent, now: string): RunMoved {
     }
     case 'checklist':
       if (run.stage !== 'planning' || run.waiting?.why !== 'checklist' || !run.plan) return { ok: false, why: 'No proposed checklist is waiting for you on this review.' }
-      return done(to(run, now, 'reviewing', 'You accepted the checklist; it is held against the change in Checklist.', { checklists: event.checklists, proposed: null, waiting: null, plan: { ...run.plan, angles: event.angles } }))
+      return done(to(run, now, 'reviewing', 'You accepted the checklist; it is held against the change.', { checklists: event.checklists, proposed: null, waiting: null, plan: { ...run.plan, angles: event.angles } }))
     case 'reviewed': {
       if (run.stage !== 'reviewing') return wrong(run, 'reviewing')
       const patch = {
@@ -207,21 +208,23 @@ export function advanceRun(run: Run, event: RunEvent, now: string): RunMoved {
       const notes = [...run.notes, ...event.result.notes].slice(-60)
       const required = judged.rulings.filter((one) => one.ruling === 'required').length
       const said = `Judged: ${judged.verdict}${required ? `, ${required} required` : ''}.`
-      if (event.diagrams.length && event.drawable) return done(to(run, now, 'diagrams', `${said} A diagram was asked for.`, { judged, notes }))
-      return done({ ...run, judged, notes, updatedAt: now, history: [...run.history, { at: now, stage: 'judging' as const, said }].slice(-200) })
+      if (event.diagrams.length && event.drawable) return done(to(run, now, 'diagrams', `${said} A diagram was asked for.`, { judged, notes, drawer: event.drawer ?? null }))
+      return done({ ...run, judged, notes, drawer: null, updatedAt: now, history: [...run.history, { at: now, stage: 'judging' as const, said }].slice(-200) })
     }
     case 'diagrammed':
       if (run.stage !== 'diagrams') return wrong(run, 'drawing')
       return done({ ...run, diagrams: event.diagrams, notes: [...run.notes, ...event.notes].slice(-60), updatedAt: now })
     case 'drafted': {
       if (run.stage !== 'judging' && run.stage !== 'diagrams') return wrong(run, 'judged')
-      const patch = { drafted: event.drafted, notes: [...run.notes, ...event.notes].slice(-60), checkout: run.checkout ? { ...run.checkout, present: false } : null }
+      const patch = { drafted: { ...event.drafted, in: event.drafted.in ?? null, briefingIn: event.drafted.briefingIn ?? null }, notes: [...run.notes, ...event.notes].slice(-60), checkout: run.checkout ? { ...run.checkout, present: false } : null }
       if (event.sent) return done(to(run, now, 'sent', 'Posted by Factory, as the project\'s switch allows for a two-way change.', { ...patch, sent: { at: now, by: 'factory' }, session: null, waiting: null }))
-      return done(waitFor(run, now, 'drafted', `The draft is in Review: ${event.drafted.comments} comment${event.drafted.comments === 1 ? '' : 's'}, a proposed verdict and summary. Read it there and send it yourself.`, patch))
+      return done(waitFor(run, now, 'drafted', event.drafted.in
+        ? `The draft is in ${event.drafted.in}: ${event.drafted.comments} comment${event.drafted.comments === 1 ? '' : 's'}, a proposed verdict and summary. Read it there and send it yourself.`
+        : 'No module here keeps draft reviews, so the result is in this record only.', patch))
     }
     case 'sent':
       if (run.stage !== 'waiting' || run.waiting?.why !== 'drafted') return wrong(run, 'drafted')
-      return done(to(run, now, 'sent', run.sent ? 'Sent.' : 'You sent it from Review.', { sent: { at: now, by: event.by }, waiting: null }))
+      return done(to(run, now, 'sent', run.sent ? 'Sent.' : 'You sent it yourself.', { sent: { at: now, by: event.by }, waiting: null }))
   }
 }
 

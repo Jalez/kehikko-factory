@@ -296,7 +296,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
                 question={reviews?.questions.find((one) => one.author === run.change.author?.login) ?? null}
                 recommended={reviews?.settings.defaultRule ?? ''}
                 onBack={() => setOpenRun(null)}
-                onOpenChange={() => void request('view.goto', { ref: run.change.ref }).catch(() => say(`Select ${run.change.ref} on the canvas; Review shows the draft.`))}
+                onOpenChange={() => void request('view.goto', { ref: run.change.ref }).catch(() => say(`Select ${run.change.ref} on the canvas; ${run.drafted?.in ?? 'the module that keeps your draft review'} shows the draft.`))}
                 onSaid={say}
               />
             )

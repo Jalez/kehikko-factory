@@ -78,7 +78,7 @@ export function ReviewView({
         {run.stage === 'waiting' && run.waiting?.why === 'drafted' ? (
           <div>
             <Button size="sm" className="h-6 px-2 text-xs" data-testid="open-in-review" onClick={onOpenChange}>
-              Open the change in Review
+              {run.drafted?.in ? `Open the change in ${run.drafted.in}` : 'Open the change'}
             </Button>
           </div>
         ) : null}
@@ -235,7 +235,7 @@ function Proposed({ run, projectPath, api, onSaid }: { run: BoardRun; projectPat
           Use my edit
         </Button>
       </div>
-      <p className="text-[var(--muted-foreground)]">It is made in Checklist and held against {run.change.ref}. Then type /review-factory resume {run.id} in the conversation.</p>
+      <p className="text-[var(--muted-foreground)]">It is made in your checklists and held against {run.change.ref}. Then type /review-factory resume {run.id} in the conversation.</p>
     </div>
   )
 }

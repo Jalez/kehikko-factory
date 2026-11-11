@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { HELP_LIMITS, MODULE_ID, helpOf, manifestSchema, moduleFolder, showsProject } from 'kehikot-module-protocol'
+import { HELP_LIMITS, MODULE_ID, WORK_STATUS, helpOf, manifestSchema, moduleFolder, serviceDescriptor, servicesOf, showsProject } from 'kehikot-module-protocol'
 
 import { MANIFEST } from '../doors.ts'
-import { HELP, ID, PREFERRED_PORT } from '../manifest.ts'
+import { HELP, ID, JOBS_ROUTE, PREFERRED_PORT } from '../manifest.ts'
 
 describe('the manifest', () => {
   test('is one a host accepts, as kehikot.factory, keeping its data under .kehikot/factory', () => {
@@ -13,9 +13,16 @@ describe('the manifest', () => {
 
   test('follows the parts, reports to the Inbox, reads the boards and the epic, and offers the factory skills', () => {
     expect(MANIFEST.reacts).toEqual(['parts'])
-    expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep'])
+    expect(MANIFEST.declares.uses).toEqual(['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep', 'services:read'])
     expect(MANIFEST.declares.skills?.map((one) => one.name)).toEqual(['factory', 'review-factory'])
     expect(MANIFEST.declares.storage).toBe(true)
+  })
+
+  test('provides work.status: a descriptor that parses, naming the route doors.ts answers (protocol 2.83.0)', () => {
+    const parsed = manifestSchema.parse(MANIFEST)
+    expect(servicesOf(parsed)).toEqual([WORK_STATUS])
+    expect(serviceDescriptor(WORK_STATUS, parsed.services?.[WORK_STATUS])).toEqual({ name: 'Factory', jobs: JOBS_ROUTE })
+    expect(JOBS_ROUTE).toBe('/api/jobs')
   })
 
   test('can show a whole project: "All epics" in the host (protocol 2.9.0)', () => {

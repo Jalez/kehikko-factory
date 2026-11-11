@@ -1,26 +1,29 @@
-import { readNeighbour } from 'kehikot-module-protocol/serve'
+import { CHECKLIST_HOLDER, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, REVIEW_DRAFTS, type Service } from 'kehikot-module-protocol'
+import { callServiceTool, fetchService, findService, type FoundService } from 'kehikot-module-protocol/serve'
 
+import { ID } from '../manifest.ts'
 import type { Run, RunChecklist } from './shape.ts'
 
 /**
- * The other modules a review writes into, through their own MCP doors — the same tools an agent
- * would call, so every rule those modules keep (Review's anchor check, Checklist's "an agent never
- * changes the person's tick") holds for Factory too:
+ * The other modules a review writes into, found only by the SERVICE they provide (protocol 2.83.0,
+ * docs/services.md): Factory never names one. `findService` asks the host who provides a service here,
+ * and every tool name, route and name said to the person comes from that provider's descriptor. Calls
+ * go to the provider's own doors, so every rule it keeps (the draft's anchor check, the checklist's "an
+ * agent never changes the person's tick") holds for Factory too:
  *
- *  - **Review** (C4): `add_comment` with `meta`, `propose_review`, `drop_run_comments`, and the
- *    Factory-only send (`POST /api/factory/send` with the key).
- *  - **Checklist** (C1): `checklists` to read what is held against the change, in its print
- *    (`[x]` passed, `[!]` failed, `[-]` n/a, `[ ]` unchecked); `create_checklist`,
- *    `add_checklist_item`, `hold_checklist` for an accepted proposal; `check_item` with `state`.
- *  - **Paper**: `propose_edit`, for a one-way change's briefing in an epic that has a paper.
+ *  - `review.drafts`: `tools.comment` with `meta`, `tools.propose`, `tools.drop`, and `send` — a run's
+ *    review sent without the person, POSTed with this server's caller pass (`fetchService`), which the
+ *    provider checks (`vouchCaller`). No descriptor `send`: nothing is posted by Factory.
+ *  - `checklist.holder`: `tools.list` to read what is held against the change, in its print (`[x]`
+ *    passed, `[!]` failed, `[-]` n/a, `[ ]` unchecked; the print is in the protocol's schema comment);
+ *    `tools.create`, `tools.add`, `tools.hold` for an accepted proposal; `tools.check` with `state`.
+ *  - `document.proposals`: `tools.propose`, for a one-way change's briefing in an epic that has a document.
+ *  - `diagram.writer`: whose `tool` the diagram drawer is told to use.
  *
- * Found through the registry (`readNeighbour`), on loopback. Nothing here is an agent's door.
+ * Nothing here is an agent's door.
  */
 
-export const REVIEW = 'kehikot.review'
-export const CHECKLIST = 'kehikot.checklist'
-export const FLOWS = 'kehikot.flows'
-export const PAPER = 'kehikot.paper'
+export { CHECKLIST_HOLDER, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, REVIEW_DRAFTS }
 
 /** The name Factory signs its checklist answers with. */
 export const AGENT_NAME = 'Factory review'
@@ -30,63 +33,47 @@ export interface Said {
   text: string
 }
 
+/** A provider found, as Factory uses it: its id (as the host answered), its name, whether placed, its descriptor. */
+export type Provider<S extends Service> = FoundService<S>
+
 export interface Neighbours {
-  /** Is it registered and answering here? */
-  present(id: string): Promise<boolean>
-  call(id: string, tool: string, args: Record<string, unknown>): Promise<Said>
-  /** Review's Factory-only send. */
-  send(body: { project: string; change: string; run: string }, key: string): Promise<{ status: number; text: string }>
-}
-
-const CALL_TIMEOUT_MS = 60_000
-
-async function post(url: string, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
-  const control = new AbortController()
-  const timer = setTimeout(() => control.abort(), CALL_TIMEOUT_MS)
-  try {
-    return await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', ...headers }, body: JSON.stringify(body), signal: control.signal })
-  } finally {
-    clearTimeout(timer)
-  }
+  /** The provider of a service here, or null when none (or the host cannot say). With `kehikko`, `placed` says whether it is on it. */
+  find<S extends Service>(service: S, where: { project: string; kehikko?: string }): Promise<Provider<S> | null>
+  /** One tool on a provider's MCP door, by the name its descriptor gives. */
+  call(module: string, tool: string, args: Record<string, unknown>): Promise<Said>
+  /** A POST to a route a provider's descriptor names, carrying this server's caller pass. */
+  send(module: string, path: string, body: unknown): Promise<{ status: number; text: string }>
 }
 
 export const realNeighbours: Neighbours = {
-  async present(id) {
-    return (await readNeighbour(id)).found
+  async find(service, where) {
+    const found = await findService(service, { module: ID, project: where.project, ...(where.kehikko ? { kehikko: where.kehikko } : {}) })
+    return found.ok ? found.provider : null
   },
-  async call(id, tool, args) {
-    const found = await readNeighbour(id)
-    if (!found.found) return { ok: false, text: found.sentence }
-    if (!found.door) return { ok: false, text: `${id} has no MCP door Factory can reach.` }
-    try {
-      const response = await post(found.door, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: tool, arguments: args } })
-      const body = (await response.json()) as { result?: { content?: { text?: string }[]; isError?: boolean }; error?: { message?: string } }
-      if (body.error) return { ok: false, text: body.error.message ?? `${id} refused ${tool}.` }
-      const text = (body.result?.content ?? []).map((one) => one.text ?? '').join('\n')
-      return { ok: body.result?.isError !== true, text }
-    } catch (e) {
-      return { ok: false, text: `${id} did not answer ${tool}: ${e instanceof Error ? e.message : String(e)}` }
-    }
+  call(module, tool, args) {
+    return callServiceTool(module, tool, args, { from: ID })
   },
-  async send(body, key) {
-    const found = await readNeighbour(REVIEW)
-    if (!found.found) return { status: 0, text: found.sentence }
+  async send(module, path, body) {
+    const sent = await fetchService(module, path, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(body) }, { from: ID })
+    if (!sent.ok) return { status: 0, text: sent.why }
     try {
-      const response = await post(`${found.origin}/api/factory/send`, body, { 'X-Kehikot-Factory-Key': key })
-      return { status: response.status, text: await response.text() }
+      return { status: sent.response.status, text: await sent.response.text() }
     } catch (e) {
-      return { status: 0, text: `Review did not answer the send: ${e instanceof Error ? e.message : String(e)}` }
+      return { status: 0, text: e instanceof Error ? e.message : String(e) }
     }
   },
 }
 
-/* ------------------------------------------------------------------ *
- * Checklist
- * ------------------------------------------------------------------ */
+type Holder = Provider<typeof CHECKLIST_HOLDER>
+type Drafts = Provider<typeof REVIEW_DRAFTS>
+type Document = Provider<typeof DOCUMENT_PROPOSALS>
 
+/* ------------------------------------------------------------------ *
+ * checklist.holder
+ * ------------------------------------------------------------------ */
 const MARK: Record<string, RunChecklist['items'][number]['state']> = { x: 'passed', '!': 'failed', '-': 'na', ' ': null }
 
-/** One list, as `checklists` prints it for a target (C1). */
+/** One list, as `tools.list` prints it for a target (the print is in the protocol's `checklist.holder` comment). */
 export function parseList(text: string): RunChecklist | null {
   const head = /^"(.*)" \(([^()\s]+)\)/.exec(text.split('\n')[0] ?? '')
   if (!head) return null
@@ -117,8 +104,9 @@ export function parseList(text: string): RunChecklist | null {
 }
 
 /** The lists held against the change, with what is set for it. `spellings`: every way the change may have been named. */
-export async function checklistsHeld(n: Neighbours, project: string, spellings: readonly string[]): Promise<{ lists: RunChecklist[]; ref: string | null; trouble: string | null }> {
-  const all = await n.call(CHECKLIST, 'checklists', { project })
+export async function checklistsHeld(n: Neighbours, holder: Holder, project: string, spellings: readonly string[]): Promise<{ lists: RunChecklist[]; ref: string | null; trouble: string | null }> {
+  const tool = holder.descriptor.tools.list
+  const all = await n.call(holder.module, tool, { project })
   if (!all.ok) return { lists: [], ref: null, trouble: all.text }
   const lists: RunChecklist[] = []
   let ref: string | null = null
@@ -128,12 +116,12 @@ export async function checklistsHeld(n: Neighbours, project: string, spellings: 
     const held = m[2]!
     let named = spellings.find((one) => held.split(', ').includes(one)) ?? null
     if (!named && /^\d+ targets/.test(held)) {
-      const whole = await n.call(CHECKLIST, 'checklists', { project, checklist: m[1]! })
+      const whole = await n.call(holder.module, tool, { project, checklist: m[1]! })
       const tail = /\n\nHeld against: (.*)$/.exec(whole.text)?.[1] ?? ''
       named = spellings.find((one) => tail.includes(`${one} (`)) ?? null
     }
     if (!named) continue
-    const one = await n.call(CHECKLIST, 'checklists', { project, checklist: m[1]!, ref: named })
+    const one = await n.call(holder.module, tool, { project, checklist: m[1]!, ref: named })
     const list = one.ok ? parseList(one.text) : null
     if (list) {
       lists.push(list)
@@ -144,29 +132,30 @@ export async function checklistsHeld(n: Neighbours, project: string, spellings: 
 }
 
 /** A proposal the person accepted: a new list, its items, held against the change. */
-export async function createChecklist(n: Neighbours, project: string, ref: string, name: string, items: readonly string[]): Promise<{ ok: true; list: RunChecklist } | { ok: false; why: string }> {
-  const made = await n.call(CHECKLIST, 'create_checklist', { project, name, agent: AGENT_NAME })
+export async function createChecklist(n: Neighbours, holder: Holder, project: string, ref: string, name: string, items: readonly string[]): Promise<{ ok: true; list: RunChecklist } | { ok: false; why: string }> {
+  const { module, name: by, descriptor } = holder
+  const made = await n.call(module, descriptor.tools.create, { project, name, agent: AGENT_NAME })
   const id = made.ok ? /"[^"]*" \(([^()\s]+)\)/.exec(made.text)?.[1] : undefined
-  if (!id) return { ok: false, why: `Checklist did not make the list: ${made.text.slice(0, 300)}` }
+  if (!id) return { ok: false, why: `${by} did not make the list: ${made.text.slice(0, 300)}` }
   for (const text of items) {
-    const added = await n.call(CHECKLIST, 'add_checklist_item', { project, checklist: id, text, agent: AGENT_NAME })
-    if (!added.ok) return { ok: false, why: `Checklist did not add "${text.slice(0, 80)}": ${added.text.slice(0, 300)}` }
+    const added = await n.call(module, descriptor.tools.add, { project, checklist: id, text, agent: AGENT_NAME })
+    if (!added.ok) return { ok: false, why: `${by} did not add "${text.slice(0, 80)}": ${added.text.slice(0, 300)}` }
   }
-  const held = await n.call(CHECKLIST, 'hold_checklist', { project, checklist: id, ref, agent: AGENT_NAME })
-  if (!held.ok) return { ok: false, why: `Checklist did not hold the list against ${ref}: ${held.text.slice(0, 300)}` }
-  const read = await n.call(CHECKLIST, 'checklists', { project, checklist: id, ref })
+  const held = await n.call(module, descriptor.tools.hold, { project, checklist: id, ref, agent: AGENT_NAME })
+  if (!held.ok) return { ok: false, why: `${by} did not hold the list against ${ref}: ${held.text.slice(0, 300)}` }
+  const read = await n.call(module, descriptor.tools.list, { project, checklist: id, ref })
   const list = read.ok ? parseList(read.text) : null
-  return list ? { ok: true, list } : { ok: false, why: 'Checklist made the list, but it could not be read back.' }
+  return list ? { ok: true, list } : { ok: false, why: `${by} made the list, but it could not be read back.` }
 }
 
 const STATE_OF = { pass: 'passed', fail: 'failed', 'n/a': 'na' } as const
 
 /**
- * The reviewers' answers set in Checklist, as Factory's. Only an unchecked item, or one Factory set
- * itself: never the person's (Checklist refuses that anyway), and not another agent's either. Where
+ * The reviewers' answers set in the checklist holder, as Factory's. Only an unchecked item, or one Factory
+ * set itself: never the person's (the holder refuses that anyway), and not another agent's either. Where
  * the panel disagrees, that is said in a note on the card and in the record instead.
  */
-export async function setStates(n: Neighbours, project: string, ref: string, run: Pick<Run, 'answers' | 'checklists'>): Promise<{ set: number; notes: string[] }> {
+export async function setStates(n: Neighbours, holder: Holder, project: string, ref: string, run: Pick<Run, 'answers' | 'checklists'>): Promise<{ set: number; notes: string[] }> {
   const notes: string[] = []
   let set = 0
   for (const answer of run.answers) {
@@ -177,15 +166,15 @@ export async function setStates(n: Neighbours, project: string, ref: string, run
       if (item.state !== state) notes.push(`${item.byPerson ? 'You' : item.by} marked "${item.text.slice(0, 80)}" ${item.state}; the ${answer.by} reviewer found it ${state}: ${answer.note}`)
       continue
     }
-    const done = await n.call(CHECKLIST, 'check_item', { project, checklist: answer.checklist, item: answer.item, ref, state, note: `${answer.note} (${answer.by} reviewer)`.slice(0, 600), agent: AGENT_NAME })
+    const done = await n.call(holder.module, holder.descriptor.tools.check, { project, checklist: answer.checklist, item: answer.item, ref, state, note: `${answer.note} (${answer.by} reviewer)`.slice(0, 600), agent: AGENT_NAME })
     if (done.ok) set++
-    else notes.push(`Checklist did not take the answer for "${item.text.slice(0, 80)}": ${done.text.slice(0, 200)}`)
+    else notes.push(`${holder.name} did not take the answer for "${item.text.slice(0, 80)}": ${done.text.slice(0, 200)}`)
   }
   return { set, notes }
 }
 
 /* ------------------------------------------------------------------ *
- * Review
+ * review.drafts
  * ------------------------------------------------------------------ */
 
 export type ReviewVerdict = 'approve' | 'comment' | 'request-changes'
@@ -201,7 +190,7 @@ export function commentBody(point: Run['points'][number], ruling: { ruling: stri
 
 /**
  * The summary proposed beside the person's: the judge's words and the vision. The path to success
- * goes beside it as `pathToSuccess`, and Review adds it under "To get this approved:", numbered.
+ * goes beside it as `pathToSuccess`, and the draft's keeper adds it under "To get this approved:", numbered.
  */
 export function summaryOf(run: Pick<Run, 'judged' | 'vision' | 'plan'>): string {
   const judged = run.judged!
@@ -223,17 +212,18 @@ export interface Drafted {
 }
 
 /**
- * The run's result as a draft in Review: earlier runs' unsent agent comments on this change dropped
- * (only those: never the person's, never a sent one — Review keeps that rule), one comment per
+ * The run's result as a draft review: earlier runs' unsent agent comments on this change dropped
+ * (only those: never the person's, never a sent one — the provider keeps that rule), one comment per
  * required or kept optional point with its `meta`, and the summary and verdict proposed beside the
  * person's, never over them.
  */
-export async function draftToReview(n: Neighbours, project: string, run: Run, earlier: readonly string[]): Promise<Drafted> {
+export async function draftToReview(n: Neighbours, drafts: Drafts, project: string, run: Run, earlier: readonly string[]): Promise<Drafted> {
   const change = run.change.url
   const notes: string[] = []
+  const { module, name, descriptor } = drafts
   for (const id of earlier) {
-    const dropped = await n.call(REVIEW, 'drop_run_comments', { project, change, run: id })
-    if (!dropped.ok) notes.push(`Review did not drop the unsent comments of ${id}: ${dropped.text.slice(0, 200)}`)
+    const dropped = await n.call(module, descriptor.tools.drop, { project, change, run: id })
+    if (!dropped.ok) notes.push(`${name} did not drop the unsent comments of ${id}: ${dropped.text.slice(0, 200)}`)
   }
   const judged = run.judged!
   const refused: Drafted['refused'] = []
@@ -251,7 +241,7 @@ export async function draftToReview(n: Neighbours, project: string, run: Run, ea
       reason: ruling.reason,
       ...(point.checklist.length ? { checklist: point.checklist } : {}),
     }
-    const added = await n.call(REVIEW, 'add_comment', {
+    const added = await n.call(module, descriptor.tools.comment, {
       project,
       change,
       path: point.path,
@@ -264,7 +254,7 @@ export async function draftToReview(n: Neighbours, project: string, run: Run, ea
     if (added.ok) comments++
     else refused.push({ point: point.id, why: added.text.slice(0, 400) })
   }
-  const proposed = await n.call(REVIEW, 'propose_review', {
+  const proposed = await n.call(module, descriptor.tools.propose, {
     project,
     change,
     run: run.id,
@@ -274,25 +264,25 @@ export async function draftToReview(n: Neighbours, project: string, run: Run, ea
     uiux: run.plan?.uiux.touches ?? false,
     pathToSuccess: judged.pathToSuccess,
   })
-  if (!proposed.ok) notes.push(`Review did not take the proposed summary and verdict: ${proposed.text.slice(0, 300)}`)
+  if (!proposed.ok) notes.push(`${name} did not take the proposed summary and verdict: ${proposed.text.slice(0, 300)}`)
   return { comments, refused, proposal: proposed.ok, notes }
 }
 
 /* ------------------------------------------------------------------ *
- * Paper
+ * document.proposals
  * ------------------------------------------------------------------ */
 
 const TEX_SPECIAL = /[\\{}$&#^_%~]/g
 const tex = (text: string) => text.replace(TEX_SPECIAL, (c) => (c === '\\' ? '\\textbackslash{}' : c === '~' ? '\\textasciitilde{}' : c === '^' ? '\\textasciicircum{}' : `\\${c}`))
 
-/** A one-way change's briefing as a pending section of the epic's paper: the person accepts or drops it. */
-export async function proposeBriefing(n: Neighbours, project: string, epic: string, title: string, briefing: string): Promise<Said> {
+/** A one-way change's briefing as a pending section of the epic's document: the person accepts or drops it. */
+export async function proposeBriefing(n: Neighbours, document: Document, project: string, epic: string, title: string, briefing: string): Promise<Said> {
   const body = briefing
     .split(/\n{2,}/)
     .map((para) => tex(para.replace(/^#+\s*/gm, '').trim()))
     .filter(Boolean)
     .join('\n\n')
-  return n.call(PAPER, 'propose_edit', {
+  return n.call(document.module, document.descriptor.tools.propose, {
     project,
     epic,
     find: '\\end{document}',

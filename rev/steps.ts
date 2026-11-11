@@ -81,7 +81,7 @@ export function agentsFor(root: string, run: Run, settings: ReviewSettings, inpu
         },
       ]
     case 'diagrams':
-      return [{ label: 'diagram drawer', prompt: diagramPrompt(subject, { project: input.project, epic: run.vision?.epic ?? '', requests: run.judged?.diagrams ?? [], runId: run.id }) }]
+      return [{ label: 'diagram drawer', prompt: diagramPrompt(subject, { project: input.project, epic: run.vision?.epic ?? '', requests: run.judged?.diagrams ?? [], runId: run.id, drawer: run.drawer }) }]
     default:
       return []
   }

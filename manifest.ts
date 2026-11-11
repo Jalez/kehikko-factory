@@ -1,4 +1,4 @@
-import { MANIFEST_KIND, PROTOCOL, manifestSchema, type Manifest } from 'kehikot-module-protocol'
+import { MANIFEST_KIND, PROTOCOL, WORK_STATUS, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 import pkg from './package.json'
 import { SETTINGS } from './settings.ts'
 /* This module's introduction (protocol 2.57.0): slides the host shows in its introduction dialog. Also
@@ -7,7 +7,7 @@ import intro from './intro.json'
 
 /** "How to use" (protocol 2.52.0). Each string one line of plain text. */
 export const HELP = {
-  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into a review module.',
+  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into your draft review.',
   sections: [
     {
       title: 'What it shows',
@@ -23,7 +23,7 @@ export const HELP = {
       points: [
         'Start a job by typing /factory and what you want in a Claude Code conversation on this kehikko. /factory next builds what is next.',
         'A job waiting for you, or one that failed, lands in the Inbox. Approve and merge it, or Send back with a note, from the header or with /factory approve and /factory rework.',
-        'Review a pull or merge request with /review-factory, on a kehikko that also has a review module. The comments are drafted there; you send them from there.',
+        'Review a pull or merge request with /review-factory, on a kehikko that also has a module that keeps your draft reviews. The comments are drafted there; you send them from there.',
         'Settings in the header, or the gear on the container, holds the switches: let the judge merge, post two-way reviews by myself, re-review by myself, reviewers may run tests, and the door rules.',
         'Map Factory’s stages onto your own GitHub or GitLab board in the board’s settings, and jobs move your issues as they change stage.',
       ],
@@ -48,6 +48,8 @@ export const HELP = {
 }
 
 export const ID = 'kehikot.factory'
+/** The `work.status` route: a job's stage by its issue (doors.ts answers it). */
+export const JOBS_ROUTE = '/api/jobs'
 /** The module's version: package.json's, the one place it is written. A release is tagged with it. */
 export const VERSION: string = pkg.version
 
@@ -91,12 +93,19 @@ export const PREFERRED_PORT = 8040
  * The second skill. A person types it on a pull or merge request; the conversation conducts a panel
  * (a planner choosing two angles, two reviewers, one adversary over every point, a judge, a diagram
  * drawer only when asked) while this module gathers, validates every point mechanically, and drafts
- * the result into Review (its MCP door) and the checklist answers into Checklist. It shows each run
- * on a Reviews board (a View switch). It posts nothing itself, except a two-way change with no UI/UX
- * when the person turned "Post two-way reviews by myself" on, through Review's Factory-only send.
+ * the result into the provider of `review.drafts` and the checklist answers into the provider of
+ * `checklist.holder` — found by service (`services:read`, rev/neighbours.ts), never by id. It shows
+ * each run on a Reviews board (a View switch). It posts nothing itself, except a two-way change with
+ * no UI/UX when the person turned "Post two-way reviews by myself" on, through the drafts provider's
+ * `send`, which takes it only from a module server that proves who it is.
  *
- * `view:navigate`: "Open the change in Review" on a review waiting for the person asks the host to
- * show the change's ref (`view.goto`), so Review, beside it, opens the draft.
+ * `view:navigate`: "Open the change" on a review waiting for the person asks the host to show the
+ * change's ref (`view.goto`), so the module keeping the draft, beside it, opens it.
+ *
+ * ## `services`: `work.status` (protocol 2.83.0)
+ *
+ * Factory provides the stage of its jobs by issue: `GET /api/jobs?ref=&projectPath=` answers `{ jobs }`
+ * (doors.ts), so a module showing an issue can say "Factory: <stage>" without naming Factory.
  *
  * ## `reacts: ['parts']`
  *
@@ -136,7 +145,7 @@ export const DECLARED: Manifest = manifestSchema.parse({
     + '`job` reads one job\'s files (spec, plan, reviews, counter-arguments, judgements, decision). You cannot start, approve, '
     + 'merge or send back a job: those are the person\'s, typed or pressed. Never merge a factory/<job> branch yourself. '
     + 'It also runs /review-factory, a review panel for pull and merge requests (planner, two reviewers, an adversary, a judge) that drafts '
-    + 'into a review module: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
+    + 'into the person\'s draft review: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
     + 'steer or send a review.',
   /* "How to use" (protocol 2.52.0), and the introduction (protocol 2.57.0). */
   help: HELP,
@@ -159,8 +168,10 @@ export const DECLARED: Manifest = manifestSchema.parse({
     /* `epics:read`, `steps:read` and `parts:read` (protocol 2.21.0): a review weighs a change
        against its epic's vision, which this server asks the host for (`rev/vision.ts`) rather than
        reading the host's files or another module's.
-       `state:keep` (2.51.0): the board shown and the job or review open on it, kept per container. */
-    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep'],
+       `state:keep` (2.51.0): the board shown and the job or review open on it, kept per container.
+       `services:read` (2.81.0): who provides the draft review, the checklists, the epic's document and
+       diagrams that /review-factory writes into (`services.find`, rev/neighbours.ts). */
+    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep', 'services:read'],
     storage: true,
     prompt: false,
     /* "All epics" (protocol 2.9.0), for a host before the `project` mode above (2.29.0). */
@@ -169,4 +180,6 @@ export const DECLARED: Manifest = manifestSchema.parse({
     settings: SETTINGS,
   },
   health: '/healthz',
+  /* The stage of its jobs, by issue, for any module that shows an issue (protocol 2.83.0). The route is doors.ts'. */
+  services: { [WORK_STATUS]: { name: 'Factory', jobs: JOBS_ROUTE } },
 })

@@ -2,7 +2,7 @@ import { DOOR_PROJECT_SAYS, KEHIKOT_DIR, doorContext, manifestSchema, type Manif
 import { establishBuild, hostVouches, mintTicket, refuseTicket, sameTicket, settingsDoor, type Reply, type Stream } from 'kehikot-module-protocol/serve'
 
 import { act, done, linkIssue, moveFailedFor, published, realNeeds, say, withMoves, type Act, type Needs } from './factory.ts'
-import { actReview, doneReview, publishedRun, recordOf, reviewBoard, reviewKey, sayReview, type ReviewAct, type ReviewNeeds } from './review-factory.ts'
+import { actReview, doneReview, publishedRun, recordOf, reviewBoard, sayReview, type ReviewAct, type ReviewNeeds } from './review-factory.ts'
 import { realNeighbours } from './rev/neighbours.ts'
 import { runIsRunning } from './rev/flow.ts'
 import type { Run } from './rev/shape.ts'
@@ -13,7 +13,7 @@ import { discover, remoteOf } from './tracker.ts'
 import { resolveProject, type Resolve } from './host-ask.ts'
 import { describeStage, isRunning } from './job/flow.ts'
 import type { Job } from './job/shape.ts'
-import { DECLARED, ID, VERSION } from './manifest.ts'
+import { DECLARED, ID, JOBS_ROUTE, VERSION } from './manifest.ts'
 import { serveFrom, servedOrigin, skillAt, skillDeclarations } from './skills.ts'
 import { jobFiles, listJobs, projectRoot, readJob, readJobFile, readJson, readQueue, readSettings, writeSettings } from './store.ts'
 import { SETTINGS, SETTINGS_FILE, valuesOf, withValue } from './settings.ts'
@@ -122,9 +122,9 @@ export function setNeeds(make: (() => Needs) | null): void {
   needsFor = make ?? (() => realNeeds(held, servedOrigin))
 }
 
-const realReviewNeeds = (): ReviewNeeds => ({ ...realNeeds(held, servedOrigin), cli: runCli, neighbours: realNeighbours, key: reviewKey })
+const realReviewNeeds = (): ReviewNeeds => ({ ...realNeeds(held, servedOrigin), cli: runCli, neighbours: realNeighbours })
 let reviewNeedsFor: () => ReviewNeeds = realReviewNeeds
-/** For tests: what `/review-factory` is given (stand-ins for gh, the other modules, the key). */
+/** For tests: what `/review-factory` is given (stand-ins for gh and the services it uses). */
 export function setReviewNeeds(make: (() => ReviewNeeds) | null): void {
   reviewNeedsFor = make ?? realReviewNeeds
 }
@@ -389,7 +389,7 @@ export async function answer(
   }
 
   /*
-   * Review (and any module) reads a change's reviews and their record with no ticket:
+   * Any module reads a change's reviews and their record with no ticket:
    * `GET /api/reviews?change=<url>&projectPath=<abs>`, and one file with `&run=<id>&file=<name>`.
    * Read-only, a fixed set of file names, and only for a folder the host holds as a project.
    */
@@ -425,12 +425,13 @@ export async function answer(
   }
 
   /*
-   * Other modules (Journeys, Flows) read a job's live stage by its issue, with no ticket:
+   * Other modules read a job's live stage by its issue, with no ticket (the `work.status` service,
+   * manifest.ts):
    * `GET /api/jobs?ref=<ref>&projectPath=<abs>`. Read-only and minimal — the published shape, never a
    * file's contents — and only for a folder the host holds as a project. Everything that writes
    * stays ticketed.
    */
-  if (path === '/api/jobs' && query.has('ref')) {
+  if (path === JOBS_ROUTE && query.has('ref')) {
     if (method !== 'GET') return bad('this door only reads', 405)
     const ref = str(query.get('ref'), 300).trim()
     if (!ref) return bad('Name the issue: ref is its URL or owner/repo#n.')
