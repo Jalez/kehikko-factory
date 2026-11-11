@@ -1,8 +1,8 @@
 /**
  * Reading a unified diff (`git diff`), and finding the lines a point is anchored to (part of
  * `review/`, free of anything Factory-specific). The line numbers are the diff's own: `old` is the
- * first column, `new` the second, the same frame Review anchors a comment in, so a point that is
- * checked here is a point Review can place.
+ * first column, `new` the second, the same frame the draft review anchors a comment in, so a point that is
+ * checked here is a point the draft review can place.
  */
 
 export interface DiffLine {

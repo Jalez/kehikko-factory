@@ -8,6 +8,9 @@ import { parseJudgement, parsePlan, parseVerdict, splitAngles, type Verdict } fr
 import { KNOWN_ANGLES, MAX_ANGLES, MAX_BRIEF, SETTLED, ANGLE_ID, type Angle, type Job, type JobPlace } from './job/shape.ts'
 import { SAID, instruct, stepFor, stopped } from './job/steps.ts'
 import { placeOfSession } from './place.ts'
+import type { HostAsk } from './rev/vision.ts'
+import { PAGE_VIEWER } from 'kehikot-module-protocol'
+import { realNeighbours, type Neighbours } from './rev/neighbours.ts'
 import { githubIds, remoteOf, type Remote } from './tracker.ts'
 import {
   jobDir,
@@ -46,6 +49,10 @@ export interface Needs {
   remote(root: string): Remote | null
   /** What a GitHub move needs for a board, by name, or why it cannot be found (`tracker.ts`). */
   github(root: string, repo: string, board: string): GithubIds | string
+  /** How this server asks the host about the project (`askHost`); the real one when absent. */
+  ask?: HostAsk
+  /** Who provides a service here (rev/neighbours.ts); the real one when absent. */
+  neighbours?: Neighbours
 }
 
 export const realNeeds = (resolve: Needs['resolve'], origin: () => string): Needs => ({
@@ -273,7 +280,7 @@ async function start(root: string, words: string, session: string, needs: Needs,
   if (!mainBranch(root)) return stopped(['this repository has no main (or master) branch with a commit on it. Factory branches each job from main.'])
   const id = `${slug(split.feature)}-${needs.suffix()}`
   const now = needs.now()
-  const job = newJob({ id, title: titleOf(split.feature), feature: split.feature.slice(0, 4000), anglesAsked: split.angles, place: place ?? placeOfSession(root, session), session, now, ref: issue ? refOf(issue) : null })
+  const job = newJob({ id, title: titleOf(split.feature), feature: split.feature.slice(0, 4000), anglesAsked: split.angles, place: place ?? (await placeOfSession(root, session, needs.ask)), session, now, ref: issue ? refOf(issue) : null })
   const made = makeJobDir(root, id)
   if (!made.ok) return stopped([made.error])
   const written = writeJob(root, job)
@@ -300,7 +307,7 @@ async function next(root: string, session: string, needs: Needs): Promise<string
     const place = first.epic ? { epic: first.epic, ...(first.parts.length ? { parts: first.parts } : {}) } : null
     return start(root, first.text, session, needs, place)
   }
-  const here = placeOfSession(root, session)
+  const here = await placeOfSession(root, session, needs.ask)
   if (here?.epic) {
     const parts = readKnownParts(root)[here.epic] ?? []
     const taken = new Set(jobs.filter((job) => job.place?.epic === here.epic).flatMap((job) => job.place?.parts ?? []))
@@ -486,14 +493,15 @@ function contestedOf(root: string, job: Job): string[] {
 }
 
 /** The next thing to tell the conversation about a job: its step, or how it ended. */
-function nextFor(root: string, job: Job, session: string, needs: Needs, fix: string | null = null, only: string[] | null = null): Promise<string> {
-  if (!isRunning(job)) return Promise.resolve(ended(root, job))
-  const where = { root, dir: jobDir(root, job.id)! }
+async function nextFor(root: string, job: Job, session: string, needs: Needs, fix: string | null = null, only: string[] | null = null): Promise<string> {
+  if (!isRunning(job)) return ended(root, job)
+  const viewer = await (needs.neighbours ?? realNeighbours).find(PAGE_VIEWER, { project: root }).catch(() => null)
+  const where = { root, dir: jobDir(root, job.id)!, viewer: viewer ? { name: viewer.name, tool: viewer.descriptor.tool } : null }
   if (job.round > 0) makeJobDir(root, job.id, job.round)
   const contested = job.stage === 'counter' || job.stage === 'judge' ? contestedOf(root, job) : []
   const step = stepFor(job, where, only, contested)
-  if (!step || !step.agents.length) return Promise.resolve(stopped([`${job.id} is at ${describeStage(job)}, which has nobody to start. This is a fault in Factory.`]))
-  return Promise.resolve(instruct(job, step, { origin: needs.origin(), project: root, session, fix }))
+  if (!step || !step.agents.length) return stopped([`${job.id} is at ${describeStage(job)}, which has nobody to start. This is a fault in Factory.`])
+  return instruct(job, step, { origin: needs.origin(), project: root, session, fix })
 }
 
 /** How a job that is no longer running is said, and its decision.md written. */

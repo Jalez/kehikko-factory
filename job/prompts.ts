@@ -19,14 +19,30 @@ export interface Where {
   root: string
   /** The job's folder under `.kehikot/factory/jobs/`. */
   dir: string
+  /** The module that shows pages here, when the host names one. */
+  viewer?: Viewer | null
 }
 
 const file = (where: Where, name: string) => join(where.dir, name)
 
-const SCREEN =
-  'Looking at the running app: if this conversation has a Kehikot page-viewing module connected (its MCP tools, which open and read pages '
-  + 'in the person\'s Kehikot), you may use them to look at what you need to see. If no such tools are connected, do not install a '
-  + 'browser or any other tool for it: skip the screen check and say in your file that you skipped it and why.'
+/** A module that shows pages on the kehikko (`page.viewer`, protocol 2.85.0): its name and the tool that opens an address. */
+export interface Viewer {
+  name: string
+  tool: string
+}
+
+/**
+ * Looking at the running app, through the module the host says shows pages here — by its own name and
+ * tool, from its descriptor. With none, nothing is said of it.
+ */
+export function screenOf(viewer: Viewer | null | undefined): string | undefined {
+  if (!viewer) return undefined
+  return (
+    `Looking at the running app: if this conversation has ${viewer.name}'s MCP tools connected, you may open the app's address with its `
+    + `\`${viewer.tool}\` tool and look at what you need to see in the person's Kehikot. If they are not connected, do not install a `
+    + 'browser or any other tool for it: skip the screen check and say in your file that you skipped it and why.'
+  )
+}
 
 const ONLY_YOURS =
   'Write only the file this prompt names. Never edit, move or delete any other file under .kehikot/, and never write job.json: the Factory '
@@ -76,7 +92,7 @@ export function subjectOf(job: Job, where: Where): review.Subject {
       ...(job.round > 1 ? { previousJudgement: file(where, `round-${job.round - 1}/judgement.md`) } : {}),
     },
     only: ONLY_YOURS,
-    screen: SCREEN,
+    ...(screenOf(where.viewer) ? { screen: screenOf(where.viewer) } : {}),
     after: 'You do not merge; the Factory does, or hands it to the person.',
   }
 }
@@ -109,8 +125,7 @@ export function buildPrompt(job: Job, where: Where): string {
     '',
     'Make the change, following the project\'s own conventions. Run its tests (and its type check or linter, if it has one) in the '
       + 'worktree and fix what you broke. Commit your work on the branch with clear messages; leave nothing uncommitted.',
-    '',
-    SCREEN,
+    ...(screenOf(where.viewer) ? ['', screenOf(where.viewer)!] : []),
     '',
     `Then ${again ? 'add' : 'write'} a section \`## Round ${job.round}\` ${again ? 'at the end of' : 'in'} ${file(where, 'build.md')}: what you changed and `
       + `where, how you tested it (the commands and what they said), the commits, and anything in the spec${again ? ' or the required points' : ''} you `

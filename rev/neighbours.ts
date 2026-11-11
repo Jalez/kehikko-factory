@@ -1,4 +1,4 @@
-import { CHECKLIST_HOLDER, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, REVIEW_DRAFTS, type Service } from 'kehikot-module-protocol'
+import { CHECKLIST_HOLDER, CHECKLIST_JSON, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, REVIEW_DRAFTS, checklistJson, checklistJsonIn, checklistListsJson, holderTakesJson, type Service } from 'kehikot-module-protocol'
 import { callServiceTool, fetchService, findService, type FoundService } from 'kehikot-module-protocol/serve'
 
 import { ID } from '../manifest.ts'
@@ -14,8 +14,9 @@ import type { Run, RunChecklist } from './shape.ts'
  *  - `review.drafts`: `tools.comment` with `meta`, `tools.propose`, `tools.drop`, and `send` — a run's
  *    review sent without the person, POSTed with this server's caller pass (`fetchService`), which the
  *    provider checks (`vouchCaller`). No descriptor `send`: nothing is posted by Factory.
- *  - `checklist.holder`: `tools.list` to read what is held against the change, in its print (`[x]`
- *    passed, `[!]` failed, `[-]` n/a, `[ ]` unchecked; the print is in the protocol's schema comment);
+ *  - `checklist.holder`: `tools.list` to read what is held against the change — as JSON when the
+ *    descriptor's `formats` has it (protocol 2.85.0, `checklistListsJson` / `checklistJson`), otherwise
+ *    in its print (`[x]` passed, `[!]` failed, `[-]` n/a, `[ ]` unchecked; in the protocol's schema comment);
  *    `tools.create`, `tools.add`, `tools.hold` for an accepted proposal; `tools.check` with `state`.
  *  - `document.proposals`: `tools.propose`, for a one-way change's briefing in an epic that has a document.
  *  - `diagram.writer`: whose `tool` the diagram drawer is told to use.
@@ -103,9 +104,38 @@ export function parseList(text: string): RunChecklist | null {
   return { id: head[2]!, name: head[1]!, items }
 }
 
+/** One list as answered for `ref`: JSON from a holder that takes it, the print from one that does not. */
+async function readList(n: Neighbours, holder: Holder, project: string, checklist: string, ref: string): Promise<RunChecklist | null> {
+  const json = holderTakesJson(holder.descriptor)
+  const one = await n.call(holder.module, holder.descriptor.tools.list, { project, checklist, ref, ...(json ? { format: CHECKLIST_JSON } : {}) })
+  if (!one.ok) return null
+  if (!json) return parseList(one.text)
+  const read = checklistJsonIn(checklistJson, one.text)
+  return read ? { id: read.id, name: read.name, items: read.items.slice(0, 200) } : null
+}
+
 /** The lists held against the change, with what is set for it. `spellings`: every way the change may have been named. */
 export async function checklistsHeld(n: Neighbours, holder: Holder, project: string, spellings: readonly string[]): Promise<{ lists: RunChecklist[]; ref: string | null; trouble: string | null }> {
   const tool = holder.descriptor.tools.list
+  if (holderTakesJson(holder.descriptor)) {
+    const all = await n.call(holder.module, tool, { project, format: CHECKLIST_JSON })
+    if (!all.ok) return { lists: [], ref: null, trouble: all.text }
+    const read = checklistJsonIn(checklistListsJson, all.text)
+    if (!read) return { lists: [], ref: null, trouble: `${holder.name} answered its lists in a shape Factory does not read.` }
+    const lists: RunChecklist[] = []
+    let ref: string | null = null
+    for (const one of read.lists) {
+      const named = spellings.find((spelling) => one.held.includes(spelling))
+      if (!named) continue
+      const list = await readList(n, holder, project, one.id, named)
+      if (list) {
+        lists.push(list)
+        ref = ref ?? named
+      }
+    }
+    return { lists, ref, trouble: null }
+  }
+  /* A holder without `formats`: its print, as before 2.85.0. */
   const all = await n.call(holder.module, tool, { project })
   if (!all.ok) return { lists: [], ref: null, trouble: all.text }
   const lists: RunChecklist[] = []
@@ -121,8 +151,7 @@ export async function checklistsHeld(n: Neighbours, holder: Holder, project: str
       named = spellings.find((one) => tail.includes(`${one} (`)) ?? null
     }
     if (!named) continue
-    const one = await n.call(holder.module, tool, { project, checklist: m[1]!, ref: named })
-    const list = one.ok ? parseList(one.text) : null
+    const list = await readList(n, holder, project, m[1]!, named)
     if (list) {
       lists.push(list)
       ref = ref ?? named
@@ -143,8 +172,7 @@ export async function createChecklist(n: Neighbours, holder: Holder, project: st
   }
   const held = await n.call(module, descriptor.tools.hold, { project, checklist: id, ref, agent: AGENT_NAME })
   if (!held.ok) return { ok: false, why: `${by} did not hold the list against ${ref}: ${held.text.slice(0, 300)}` }
-  const read = await n.call(module, descriptor.tools.list, { project, checklist: id, ref })
-  const list = read.ok ? parseList(read.text) : null
+  const list = await readList(n, holder, project, id, ref)
   return list ? { ok: true, list } : { ok: false, why: `${by} made the list, but it could not be read back.` }
 }
 

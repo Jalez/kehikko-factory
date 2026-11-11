@@ -107,8 +107,8 @@ function findRun(root: string, said: string): Result<Run> {
 const FACTORY_ID = ID
 
 /** The kehikko this conversation is placed on, whether the Factory page saw itself there, and whether a module that keeps draft reviews is placed on it. */
-async function kehikkoCheck(root: string, session: string, needs: Pick<ReviewNeeds, 'neighbours'>): Promise<{ ok: true; kehikko: string; place: Run['place'] } | { ok: false; why: string }> {
-  const place = placeOfSession(root, session)
+async function kehikkoCheck(root: string, session: string, needs: Pick<ReviewNeeds, 'neighbours' | 'ask'>): Promise<{ ok: true; kehikko: string; place: Run['place'] } | { ok: false; why: string }> {
+  const place = await placeOfSession(root, session, needs.ask)
   if (!place?.kehikko) {
     return {
       ok: false,

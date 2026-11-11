@@ -1,4 +1,4 @@
-import { MANIFEST_KIND, PROTOCOL, WORK_STATUS, manifestSchema, type Manifest } from 'kehikot-module-protocol'
+import { MANIFEST_KIND, MODULE_FOLDERS, PROTOCOL, WORK_STATUS, manifestSchema, type Manifest } from 'kehikot-module-protocol'
 import pkg from './package.json'
 import { SETTINGS } from './settings.ts'
 /* This module's introduction (protocol 2.57.0): slides the host shows in its introduction dialog. Also
@@ -170,8 +170,9 @@ export const DECLARED: Manifest = manifestSchema.parse({
        reading the host's files or another module's.
        `state:keep` (2.51.0): the board shown and the job or review open on it, kept per container.
        `services:read` (2.81.0): who provides the draft review, the checklists, the epic's document and
-       diagrams that /review-factory writes into (`services.find`, rev/neighbours.ts). */
-    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep', 'services:read'],
+       diagrams that /review-factory writes into (`services.find`, rev/neighbours.ts).
+       `sessions:place` (2.85.0): which epic, parts and kehikko a conversation is filed under (place.ts). */
+    uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep', 'services:read', 'sessions:place'],
     storage: true,
     prompt: false,
     /* "All epics" (protocol 2.9.0), for a host before the `project` mode above (2.29.0). */
@@ -181,5 +182,12 @@ export const DECLARED: Manifest = manifestSchema.parse({
   },
   health: '/healthz',
   /* The stage of its jobs, by issue, for any module that shows an issue (protocol 2.83.0). The route is doors.ts'. */
-  services: { [WORK_STATUS]: { name: 'Factory', jobs: JOBS_ROUTE } },
+  services: {
+    [WORK_STATUS]: { name: 'Factory', jobs: JOBS_ROUTE },
+    /* The one folder it keeps under `.kehikot/` and is the only writer of (protocol 2.85.0). */
+    [MODULE_FOLDERS]: {
+      name: 'Factory',
+      folders: [{ folder: 'factory', says: 'Its jobs and reviews, each with its steps, reports and record, the queue, and its settings.', derived: false }],
+    },
+  },
 })

@@ -12,7 +12,7 @@ import type { CheckedPoint } from './validate.ts'
  *  - "close this change" stands only when both reviewers, the adversary and the judge said so;
  *    otherwise it is "request changes", and the record says it was not unanimous;
  *  - the path to success is exactly the required points, one step each, unnumbered (whoever shows
- *    it numbers it: Review does, under "To get this approved:"). Doing those gets it approved.
+ *    it numbers it: the draft review does, under "To get this approved:"). Doing those gets it approved.
  */
 
 export const MAX_OPTIONAL = 3

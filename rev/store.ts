@@ -17,7 +17,7 @@ import { RUN_ID, runSchema, type Run } from './shape.ts'
  *
  * The same confinement as the jobs (store.ts): every level from `.kehikot` down resolves inside the
  * project, and a name is one of a fixed set of shapes, never a path from a request. The record is
- * never posted anywhere; the person reads it on the card and in Review.
+ * never posted anywhere; the person reads it on the card and in the draft review.
  */
 
 const ANGLE = ANGLE_ID.source.slice(1, -1)
