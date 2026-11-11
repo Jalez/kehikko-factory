@@ -255,7 +255,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   if (cover) return <Cover state={cover} name="Factory" onRetry={() => void read()} />
 
   return (
-    <div className="flex h-screen min-w-0 flex-col text-sm">
+    <div data-kehikot-page className="flex h-screen min-w-0 flex-col text-sm">
       {footed ? null : (
         <header className="flex min-h-8 shrink-0 items-center gap-2 border-b px-2 py-1">
           <span className="min-w-0 flex-1 truncate text-xs text-[var(--muted-foreground)]" data-testid="summary">
