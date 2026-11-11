@@ -24,7 +24,7 @@ export interface Where {
 const file = (where: Where, name: string) => join(where.dir, name)
 
 const SCREEN =
-  'Looking at the running app: if this conversation has a Kehikot Browser module connected (its MCP tools, which open and read pages '
+  'Looking at the running app: if this conversation has a Kehikot page-viewing module connected (its MCP tools, which open and read pages '
   + 'in the person\'s Kehikot), you may use them to look at what you need to see. If no such tools are connected, do not install a '
   + 'browser or any other tool for it: skip the screen check and say in your file that you skipped it and why.'
 

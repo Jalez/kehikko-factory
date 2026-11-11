@@ -28,7 +28,7 @@ export const SETTINGS: SettingField[] = settingsDeclarationSchema.parse([
   {
     key: 'postTwoWay',
     label: 'Post two-way reviews by myself',
-    description: 'A two-way change with no UI or UX is posted to the pull or merge request without you, through Review.',
+    description: 'A two-way change with no UI or UX is posted to the pull or merge request without you, through a review module.',
     type: 'boolean',
     default: false,
     personOnly: true,

@@ -45,7 +45,7 @@ const OFFERED = [
   {
     name: 'review-factory',
     summary:
-      'Type /review-factory on a pull or merge request: two chosen angles, two reviewers, an adversary and a judge, the checklist to the letter, and a draft in Review you send yourself.',
+      'Type /review-factory on a pull or merge request: two chosen angles, two reviewers, an adversary and a judge, the checklist to the letter, and a draft in a review module you send yourself.',
     needs: [REVIEW],
   },
 ] as const satisfies readonly { name: string; summary: string; needs?: readonly string[] }[]

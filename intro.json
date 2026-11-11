@@ -66,7 +66,7 @@
     },
     {
       "title": "Reviews people actually read",
-      "body": "Type /review-factory on a pull or merge request. A panel of agents reviews it and drafts the comments into Review. Nothing is posted until you send it.",
+      "body": "Type /review-factory on a pull or merge request. A panel of agents reviews it and drafts the comments into a review module. Nothing is posted until you send it.",
       "art": {
         "label": "two reviewers and a judge drafting comments onto a change",
         "shapes": [
