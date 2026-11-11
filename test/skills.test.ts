@@ -50,7 +50,7 @@ describe('the /review-factory skill', () => {
 
   test('is kehikko-bound: it needs Review on the kehikko; /factory needs nothing', () => {
     const [factory, review] = skillDeclarations('http://127.0.0.1:8040')
-    expect(review).toMatchObject({ name: 'review-factory', needs: ['kehikot.review'] })
+    expect(review).toMatchObject({ name: 'review-factory', needs: [{ service: 'review.drafts' }] })
     expect(isKehikkoBound(review!)).toBe(true)
     expect('needs' in factory!).toBe(false)
     expect(isKehikkoBound(factory!)).toBe(false)

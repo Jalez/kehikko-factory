@@ -5,7 +5,7 @@ import { runCli, type Remote, type Run as CliRun } from '../tracker.ts'
 /**
  * Which change a person means, and what its forge says about it — read with the person's own `gh`
  * or `glab`, on their behalf, as reads only. Nothing here posts, comments or approves: the draft
- * goes to Review, and only the person (or the switch they turned on) sends it.
+ * goes to the draft review, and only the person (or the switch they turned on) sends it.
  */
 
 export interface Target {

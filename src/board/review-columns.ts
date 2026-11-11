@@ -2,7 +2,7 @@ import type { Run } from '../../rev/shape.ts'
 
 /**
  * The Reviews board: one card per change under review, and the columns are the steps (contract
- * C5). Diagrams is drawn only while a run is in it: a judge asks for one rarely, and only when Flows
+ * C5). Diagrams is drawn only while a run is in it: a judge asks for one rarely, and only when a diagram drawer
  * is on the kehikko. It touches nothing else: not the build board, not Factory's stage mapping,
  * and never the change's column on the project's own board.
  */
@@ -57,12 +57,12 @@ export function checklistProgress(run: Pick<Run, 'checklists' | 'answers'>): str
 }
 
 /** What a card says under its title. */
-export function runLine(run: Pick<Run, 'stage' | 'waiting' | 'round' | 'judged' | 'background' | 'id'>): string {
+export function runLine(run: Pick<Run, 'stage' | 'waiting' | 'round' | 'judged' | 'background' | 'id'> & { drafted?: Run['drafted'] }): string {
   const round = run.round > 1 ? ` · re-review ${run.round}` : ''
   if (run.waiting?.why === 'checklist') return `your checklist${round}`
   if (run.waiting?.why === 'moved-on') return `the change moved on${round}`
   if (run.waiting?.why === 'stopped') return `stopped${round}`
-  if (run.stage === 'waiting') return `${run.judged?.verdict === 'approve' ? 'approves' : run.judged?.verdict === 'close' ? 'close it' : run.judged?.verdict === 'comment' ? 'comments' : 'changes requested'}: read it in Review${round}`
+  if (run.stage === 'waiting') return `${run.judged?.verdict === 'approve' ? 'approves' : run.judged?.verdict === 'close' ? 'close it' : run.judged?.verdict === 'comment' ? 'comments' : 'changes requested'}: read it in ${run.drafted?.in ?? 'the draft review'}${round}`
   if (run.stage === 'queued') return run.background ? `starting by itself${round}` : `type /review-factory resume ${run.id}`
   if (run.stage === 'sent') return `sent${round}`
   return `${run.stage}${round}`

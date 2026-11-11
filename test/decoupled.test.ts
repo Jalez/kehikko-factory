@@ -8,8 +8,11 @@ import * as manifest from '../manifest.ts'
    "Inbox" is a host term and may stay. */
 const OTHERS = ['Journeys', 'References', 'Checklist', 'Paper', 'Slides', 'Citations', 'Notes', 'Learning', 'Source', 'Diff', 'Review', 'Explorer', 'Terminal', 'History', 'Orchestrator', 'Browser', 'Editor', 'Factory', 'Kanban', 'Monitor', 'Queue', 'Worktrees', 'Flows', 'Screenplay', 'Codex', 'Antigravity', 'OpenCode', 'Vibe'].filter((n) => n !== 'Factory')
 const ROOT = join(import.meta.dir, '..')
-const names = new RegExp(`\\b(${OTHERS.join('|')})\\b|kehikot\\.(${OTHERS.map((n) => n.toLowerCase()).join('|')})\\b|mcp__(${OTHERS.map((n) => n.toLowerCase()).join('|')})__`)
-const ids = new RegExp(`kehikot\\.(${OTHERS.map((n) => n.toLowerCase()).join('|')})\\b`)
+/* Agent modules are named by id only: "Claude" as a word is the model. */
+const lower = [...OTHERS.map((n) => n.toLowerCase()), 'claude', 'notifications'].join('|')
+const names = new RegExp(`\\b(${OTHERS.join('|')})\\b|(kehikot|roadmap)\\.(${lower})\\b|\\.kehikot/(${lower})\\b|mcp__(${lower})__`)
+/* Another module's id (either spelling) or its folder under `.kehikot/`. */
+const ids = new RegExp(`(kehikot|roadmap)\\.(${lower})\\b|\\.kehikot/(${lower})\\b`)
 
 /* Lines where a capitalised everyday word is only a word, not a module. */
 const PLAIN: string[] = ['Spec, Plan, Build, Review, Judge', 'Review a pull or merge request', 'Review, round 1', '"text": "Review"']
@@ -29,8 +32,14 @@ describe('no module names another', () => {
     for (const text of skills) expect(found(text.split('\n').filter((line) => !line.startsWith('allowed-tools')).join('\n'))).toEqual([])
   })
 
+  test('it would catch one', () => {
+    expect(ids.test("const X = 'roadmap.paper'")).toBe(true)
+    expect(ids.test("join(root, '.kehikot/claude/places.json')")).toBe(true)
+    expect(names.test('open it in the Browser')).toBe(true)
+  })
+
   test('the descriptions an agent reads in the code', () => {
-    for (const file of ["doors.ts","job/prompts.ts","settings.ts","skills.ts"]) {
+    for (const file of ["doors.ts", "job/prompts.ts", "review/prompts.ts", "review-factory.ts", "factory.ts", "place.ts", "settings.ts", "skills.ts", "rev/neighbours.ts"]) {
       let inBlock = false
       const lines = read(file).split('\n').filter((line) => {
         const was = inBlock
@@ -38,9 +47,7 @@ describe('no module names another', () => {
         if (inBlock && line.includes('*/')) inBlock = false
         return !was && !/^\s*(\/\*|\*|\/\/)/.test(line) && !/^\s*import /.test(line)
       })
-      /* skills.ts: a skill's `needs` cannot name a service yet, so the one id it needs is spelled once
-         there (SKILL_NEEDS_DRAFTS, and test/no-neighbours.test.ts holds it to that one line). */
-      expect(lines.filter((line) => ids.test(line) && !(file === 'skills.ts' && /^const SKILL_NEEDS_DRAFTS = /.test(line)))).toEqual([])
+      expect(lines.filter((line) => ids.test(line)).map((line) => `${file}: ${line.trim()}`)).toEqual([])
     }
   })
 })

@@ -23,15 +23,8 @@ const FORBIDDEN: { what: string; pattern: RegExp }[] = [
   { what: 'the retired private key', pattern: /Factory-Key|review-factory\.key|readFactoryKey|REVIEW_FACTORY_KEY|keysDir|KEHIKOT_KEYS_DIR/i },
 ]
 
-/**
- * What still names another module, each with why. Not for growing: each goes when its reason does.
- *  - place.ts: the agent sessions' places file, read until another batch moves it behind the host.
- *  - skills.ts: a skill's `needs` cannot name a service yet (see SKILL_NEEDS_DRAFTS there).
- */
-const ALLOWED: { file: string; line: RegExp }[] = [
-  { file: 'place.ts', line: /kehikot\.claude|\.kehikot\/claude/ },
-  { file: 'skills.ts', line: /^const SKILL_NEEDS_DRAFTS = 'kehikot\.review'/ },
-]
+/** What still names another module, each with why. Not for growing: none is left. */
+const ALLOWED: { file: string; line: RegExp }[] = []
 
 function files(): string[] {
   return execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })

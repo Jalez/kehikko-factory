@@ -22,7 +22,7 @@ export interface Checked {
   base: string
   mergeBase: string
   path: string
-  /** The whole change's diff, merge base to head, in the line frame Review anchors comments in. */
+  /** The whole change's diff, merge base to head, in the line frame the draft review anchors comments in. */
   diff: string
   /** Since the previous review's head, when that commit is still here: empty when nothing changed since. */
   delta: string | null

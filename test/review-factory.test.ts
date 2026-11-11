@@ -33,11 +33,24 @@ function gh(head: () => string, over: Record<string, unknown> = {}): CliRun {
   }
 }
 
+/**
+ * A host that files SESSION under the epic greetings on kehikko k1 (`sessions.placeOf`, protocol
+ * 2.85.0), and answers whatever else `rest` answers.
+ */
+function placing(rest?: HostAsk): HostAsk {
+  return async (method, params, project) => {
+    if (method === 'sessions.placeOf') {
+      const place = params.session === SESSION ? { epic: 'greetings', parts: [], kehikko: 'k1' } : null
+      return { ok: true as const, data: { place } as never }
+    }
+    return rest ? rest(method, params, project) : { ok: false as const, why: `not answered here: ${method}` }
+  }
+}
+
 function setUp(opts: { n?: Neighbours; cli?: CliRun; modules?: string[]; spawned?: unknown[] } = {}) {
   forge = scratchForge()
   const root = forge.root
   const head = forge.head
-  write(join(root, '.kehikot', 'claude', 'places.json'), JSON.stringify({ places: { here: { epic: 'greetings', kehikko: { key: 'k1' }, sessions: [SESSION] } } }))
   const modules = opts.modules ?? ['kehikot.factory', REVIEW, CHECKLIST]
   /* What the page saw on the kehikko, and what the host says is placed there: the same modules. */
   pageSaw(root, { kehikko: 'k1', modules, selection: ['gh#7'] })
@@ -54,6 +67,7 @@ function setUp(opts: { n?: Neighbours; cli?: CliRun; modules?: string[]; spawned
       opts.spawned?.push([program, args, cwd])
       return { ok: true }
     },
+    ask: placing(),
   }
   return { root, head, needs }
 }
@@ -453,7 +467,7 @@ describe('the services a review writes into, each by what its descriptor says', 
 
   async function toJudging(stand: ReturnType<typeof standIn>, plan: Record<string, unknown> = {}) {
     const { root, needs } = setUp({ n: stand.n })
-    needs.ask = ask
+    needs.ask = placing(ask)
     await say(needs, root)
     for (let i = 0; i < 6 && runOf(root).stage !== 'judging'; i++) {
       agentsDo(root, runOf(root), { plan })

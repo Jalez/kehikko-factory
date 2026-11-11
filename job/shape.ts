@@ -39,7 +39,7 @@ export const JOB_ID = /^[a-z0-9][a-z0-9-]{0,46}-[0-9a-f]{4}$/
 
 
 
-/** Where the job was started, from the Claude module's record of the conversation. Absent: unplaced. */
+/** Where the job was started, as the host files the conversation (`sessions.placeOf`, place.ts). Absent: unplaced. */
 export const jobPlaceSchema = z.object({
   epic: z.string().optional(),
   parts: z.array(z.string()).optional(),

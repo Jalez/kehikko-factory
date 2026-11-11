@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { skillPath, skillTextIssue, type ModuleSkill } from 'kehikot-module-protocol'
+import { REVIEW_DRAFTS, skillPath, skillTextIssue, type ModuleSkill, type SkillNeed } from 'kehikot-module-protocol'
 import { originFor, preferred } from 'kehikot-module-protocol/serve'
 
 import { PREFERRED_PORT } from './manifest.ts'
@@ -18,7 +18,7 @@ import { PREFERRED_PORT } from './manifest.ts'
  *
  * The version is the first twelve hex digits of the sha256 of the text with the origin filled in
  * and `{{version}}` still unfilled, so a changed template or a moved port makes an installed copy
- * "outdated" and the host's sync brings it level. The same scheme as the Claude module's skills.
+ * "outdated" and the host's sync brings it level.
  *
  * A skill a person installs is user-level: it cannot ship agent files. So the skill is the
  * orchestrator — the conversation it runs in starts each subagent with a prompt given inline — and
@@ -31,13 +31,10 @@ import { PREFERRED_PORT } from './manifest.ts'
  * placed on the kehikko (`kehikkoCheck` in review-factory.ts). `/factory` needs nothing beside
  * Factory and stays unbound.
  *
- * `SKILL_NEEDS_DRAFTS` is the one place Factory still spells another module's id: a skill's `needs`
- * (protocol 2.83.0) can name a module id, or what a module `declares.provides`, says in
- * `mcp.subjects`, `reacts` to or `uses` — but not a service in `services`, and the module that
- * provides `review.drafts` declares none of the others. When the protocol takes a service as a need,
- * this becomes that and the id goes.
+ * `SKILL_NEEDS_DRAFTS` is that need as a host checks it before loading the skill (protocol 2.85.0,
+ * a `{ service }` need): some module on the kehikko provides `review.drafts`. No module is named.
  */
-const SKILL_NEEDS_DRAFTS = 'kehikot.review' // services: not yet a skill need (see above)
+const SKILL_NEEDS_DRAFTS: SkillNeed = { service: REVIEW_DRAFTS }
 
 export const PLUGIN_DIR = join(import.meta.dirname, 'plugin')
 export const ORIGIN_SLOT = '{{origin}}'
@@ -55,7 +52,7 @@ const OFFERED = [
       'Type /review-factory on a pull or merge request: two chosen angles, two reviewers, an adversary and a judge, the checklist to the letter, and a draft review you send yourself.',
     needs: [SKILL_NEEDS_DRAFTS],
   },
-] as const satisfies readonly { name: string; summary: string; needs?: readonly string[] }[]
+] as const satisfies readonly { name: string; summary: string; needs?: readonly SkillNeed[] }[]
 
 const LOOPBACK_ORIGIN = /^http:\/\/127\.0\.0\.1:\d{1,5}$/
 

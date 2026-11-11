@@ -27,6 +27,47 @@ describe('checklist.holder, through its provider\'s door', () => {
     expect(calls.filter((one) => one.args.checklist).map((one) => one.args)).toEqual([{ project: '/p', checklist: 'c1', ref: 'gh#7' }])
   })
 
+  describe('a holder that answers JSON (formats: [\'json\'], protocol 2.85.0)', () => {
+    const JSON_HOLDER = { ...HOLDER, descriptor: { ...HOLDER.descriptor, formats: ['json' as const] } }
+    const ONE = { id: 'c1', name: 'What a change owes', held: ['gh#7', 'gh#9'], items: [
+      { id: 'i1', text: 'Has a test', state: 'passed', byPerson: true, by: 'Jaakko', note: 'greet.test.js' },
+      { id: 'i2', text: 'Docs updated', state: 'failed', byPerson: false, by: AGENT_NAME, note: 'README untouched' },
+      { id: 'i3', text: 'No new dependency', state: null, byPerson: false },
+    ] }
+    const json = () =>
+      standIn({
+        [`${CHECKLIST}:checklists`]: (args) =>
+          args.format !== 'json'
+            ? { ok: false, text: 'asked for the print' }
+            : args.checklist
+              ? { ok: true, text: JSON.stringify(ONE) }
+              : { ok: true, text: JSON.stringify({ lists: [{ id: 'c1', name: 'What a change owes', held: ['gh#7', 'gh#9'] }, { id: 'c2', name: 'Other', held: ['gh#3'] }] }) },
+      })
+
+    test('the lists held against the change are read as JSON, never the print', async () => {
+      const { n, calls } = json()
+      const held = await checklistsHeld(n, JSON_HOLDER, '/p', ['gh:me/app#7', 'gh#7'])
+      expect(held.trouble).toBeNull()
+      expect(held.ref).toBe('gh#7')
+      expect(held.lists).toEqual([{ id: 'c1', name: 'What a change owes', items: ONE.items as never }])
+      expect(calls.map((one) => one.args)).toEqual([{ project: '/p', format: 'json' }, { project: '/p', checklist: 'c1', ref: 'gh#7', format: 'json' }])
+    })
+
+    test('an answer in another shape is trouble, not a guess', async () => {
+      const { n } = standIn({ [`${CHECKLIST}:checklists`]: () => ({ ok: true, text: 'Checklists in /p:' }) })
+      const held = await checklistsHeld(n, JSON_HOLDER, '/p', ['gh#7'])
+      expect(held.lists).toEqual([])
+      expect(held.trouble).toContain('Checklist')
+    })
+
+    test('an accepted proposal is read back as JSON', async () => {
+      const { n, calls } = json()
+      const made = await createChecklist(n, JSON_HOLDER, '/p', 'gh#7', 'Proposed for gh#7', ['Has a test'])
+      expect(made.ok).toBe(true)
+      expect(calls.at(-1)!.args).toEqual({ project: '/p', checklist: expect.any(String), ref: 'gh#7', format: 'json' })
+    })
+  })
+
   test('an accepted proposal is made, filled and held against the change', async () => {
     const { n, calls } = standIn()
     const made = await createChecklist(n, HOLDER, '/p', 'gh#7', 'Proposed for gh#7', ['Has a test', 'Docs updated'])
