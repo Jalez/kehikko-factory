@@ -7,7 +7,7 @@ import intro from './intro.json'
 
 /** "How to use" (protocol 2.52.0). Each string one line of plain text. */
 export const HELP = {
-  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into Review.',
+  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into a review module.',
   sections: [
     {
       title: 'What it shows',
@@ -23,7 +23,7 @@ export const HELP = {
       points: [
         'Start a job by typing /factory and what you want in a Claude Code conversation on this kehikko. /factory next builds what is next.',
         'A job waiting for you, or one that failed, lands in the Inbox. Approve and merge it, or Send back with a note, from the header or with /factory approve and /factory rework.',
-        'Review a pull or merge request with /review-factory, on a kehikko that also has Review. The comments are drafted into Review; you send them from there.',
+        'Review a pull or merge request with /review-factory, on a kehikko that also has a review module. The comments are drafted there; you send them from there.',
         'Settings in the header, or the gear on the container, holds the switches: let the judge merge, post two-way reviews by myself, re-review by myself, reviewers may run tests, and the door rules.',
         'Map Factory’s stages onto your own GitHub or GitLab board in the board’s settings, and jobs move your issues as they change stage.',
       ],
@@ -136,7 +136,7 @@ export const DECLARED: Manifest = manifestSchema.parse({
     + '`job` reads one job\'s files (spec, plan, reviews, counter-arguments, judgements, decision). You cannot start, approve, '
     + 'merge or send back a job: those are the person\'s, typed or pressed. Never merge a factory/<job> branch yourself. '
     + 'It also runs /review-factory, a review panel for pull and merge requests (planner, two reviewers, an adversary, a judge) that drafts '
-    + 'into Review: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
+    + 'into a review module: `reviews` lists a project\'s reviews, `review` reads one and its record ("How this review was made"). You cannot start, '
     + 'steer or send a review.',
   /* "How to use" (protocol 2.52.0), and the introduction (protocol 2.57.0). */
   help: HELP,
@@ -158,7 +158,7 @@ export const DECLARED: Manifest = manifestSchema.parse({
     protocol: `>=${PROTOCOL} <${PROTOCOL + 1}`,
     /* `epics:read`, `steps:read` and `parts:read` (protocol 2.21.0): a review weighs a change
        against its epic's vision, which this server asks the host for (`rev/vision.ts`) rather than
-       reading the host's files or Journeys'.
+       reading the host's files or another module's.
        `state:keep` (2.51.0): the board shown and the job or review open on it, kept per container. */
     uses: ['activity:report', 'trackers:read', 'view:navigate', 'epics:read', 'steps:read', 'parts:read', 'state:keep'],
     storage: true,
