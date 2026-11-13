@@ -20,7 +20,7 @@ const points = (rulings: ('required' | 'optional' | 'rejected')[], final: 'merge
   points: rulings.map((ruling, i) => ({ ruling, angle: 'tests', point: `p${i}` })),
 })
 
-describe('the review machinery, apart from Factory', () => {
+describe('the review machinery, apart from Build Pipeline', () => {
   test('the judge\'s rules: required points go back while rounds remain, then to the person; otherwise its last word', () => {
     expect(ruleOn(points(['required', 'optional', 'rejected'], 'changes'), 1, 3)).toEqual({ kind: 'rework', required: [{ angle: 'tests', point: 'p0' }] })
     expect(ruleOn(points(['required'], 'changes'), 3, 3)).toEqual({ kind: 'decide', required: [{ angle: 'tests', point: 'p0' }] })

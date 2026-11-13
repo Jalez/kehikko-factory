@@ -119,7 +119,7 @@ function statusField(root: string, project: Linked, run: Run): StatusField | nul
 /** The boards and their columns, found with the person's CLI: the fallback when the host read none. */
 export function discover(root: string, run: Run = runCli): Found {
   const remote = remoteOf(root)
-  if (!remote) return { ok: false, why: 'The project\'s origin is not a GitHub or GitLab repository, so there is no board to map to. Jobs stay on the Factory board.' }
+  if (!remote) return { ok: false, why: 'The project\'s origin is not a GitHub or GitLab repository, so there is no board to map to. Jobs stay on the Build Pipeline board.' }
 
   if (remote.kind === 'gitlab') {
     const ran = run('glab', ['api', `projects/${encodeURIComponent(remote.repo)}/boards`], root)
@@ -156,7 +156,7 @@ export function githubIds(root: string, repo: string, board: string, run: Run = 
     const projects = linkedProjects(root, repo, run)
     if (typeof projects === 'string') return projects
     const project = projects.find((one) => one.title === board)
-    if (!project) return `${repo} is not on a project called "${board}" any more. Map the stages again in Factory's settings.`
+    if (!project) return `${repo} is not on a project called "${board}" any more. Map the stages again in Build Pipeline's settings.`
     const field = statusField(root, project, run)
     if (typeof field === 'string') return field
     if (!field) return `"${board}" has no Status field to move an issue in.`

@@ -3,11 +3,11 @@ import { LIMITS, headerItemsSchema, type HeaderItem } from 'kehikot-module-proto
 import type { Job } from '../../job/shape.ts'
 
 /**
- * What Factory puts in its container's header, as a pure function of the page's state:
+ * What Build Pipeline puts in its container's header, as a pure function of the page's state:
  *
  *  - **View**: the Jobs board or the Reviews board (`/review-factory`). An agent may switch it.
  *    Which epics a board shows is not here: it is the container's scope (protocol 2.29.0), the
- *    open epic or the whole project, which the person picks in Factory's settings in the host.
+ *    open epic or the whole project, which the person picks in Build Pipeline's settings in the host.
  *  - **Run**: "Approve and merge…" and "Send back with a note…", for the SELECTED job and only while
  *    it waits for the person. Neither is ever pressed by an agent: approving runs a merge, and the
  *    approve run asks to be confirmed (`confirm`), which the protocol refuses to mark for agents.
@@ -27,7 +27,7 @@ export type View = 'epic' | 'reviews'
 
 /** What an agent pressing the old "All jobs" is told: which epics show is the scope, the person's. */
 export const SCOPE_IS_THE_PERSONS =
-  'Which epics the board shows is its scope — the open epic or the whole project — and the person picks it in Factory’s settings.'
+  'Which epics the board shows is its scope — the open epic or the whole project — and the person picks it in Build Pipeline’s settings.'
 
 const reason = (text: string) => (text.length > LIMITS.REASON ? `${text.slice(0, LIMITS.REASON - 1)}…` : text)
 

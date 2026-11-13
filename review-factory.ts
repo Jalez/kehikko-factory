@@ -106,13 +106,13 @@ function findRun(root: string, said: string): Result<Run> {
 
 const FACTORY_ID = ID
 
-/** The kehikko this conversation is placed on, whether the Factory page saw itself there, and whether a module that keeps draft reviews is placed on it. */
+/** The kehikko this conversation is placed on, whether the Build Pipeline page saw itself there, and whether a module that keeps draft reviews is placed on it. */
 async function kehikkoCheck(root: string, session: string, needs: Pick<ReviewNeeds, 'neighbours' | 'ask'>): Promise<{ ok: true; kehikko: string; place: Run['place'] } | { ok: false; why: string }> {
   const place = await placeOfSession(root, session, needs.ask)
   if (!place?.kehikko) {
     return {
       ok: false,
-      why: 'this conversation is not placed on a kehikko in Kehikot, so there is no Factory to run a review. Start the conversation from a kehikko that has the Factory module on it.',
+      why: 'this conversation is not placed on a kehikko in Kehikot, so there is no Build Pipeline to run a review. Start the conversation from a kehikko that has the Build Pipeline module on it.',
     }
   }
   const drafts = await needs.neighbours.find(REVIEW_DRAFTS, { project: root, kehikko: place.kehikko })
@@ -126,23 +126,23 @@ export const NO_DRAFTS = 'a module that keeps draft reviews'
 
 /**
  * What /review-factory needs on its kehikko: the provider of `review.drafts`, which it drafts into,
- * placed there (the host's `services.find` says so), and Factory, whose page saw the kehikko
+ * placed there (the host's `services.find` says so), and Build Pipeline, whose page saw the kehikko
  * (`seen.modules`). This is the rule at run time, for a conversation that outlived its kehikko's
  * arrangement. Each missing one by its name: the provider's registered name, `NO_DRAFTS` when nothing
- * here provides the service (or the host cannot say), and "Factory".
+ * here provides the service (or the host cannot say), and "Build Pipeline".
  */
 export function missingForReview(modules: readonly string[], drafts: { name: string; placed: boolean | null } | null): string[] {
   const missing: string[] = []
   if (!drafts) missing.push(NO_DRAFTS)
   else if (drafts.placed !== true) missing.push(drafts.name)
-  if (!modules.includes(FACTORY_ID)) missing.push('Factory')
+  if (!modules.includes(FACTORY_ID)) missing.push('Build Pipeline')
   return missing
 }
 
-/** "/review-factory needs <the drafts' keeper> and Factory on this kehikko; <it> is missing." and what to do. */
+/** "/review-factory needs <the drafts' keeper> and Build Pipeline on this kehikko; <it> is missing." and what to do. */
 export function missingSaid(missing: readonly string[], drafts: string): string {
   const names = missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)} are` : `${missing[0]} is`
-  return `/review-factory needs ${drafts} and Factory on this kehikko; ${names} missing.\nPut ${missing.join(' and ')} on that kehikko${missing.includes('Factory') ? ' (and open Factory there once)' : ''}, then try again.`
+  return `/review-factory needs ${drafts} and Build Pipeline on this kehikko; ${names} missing.\nPut ${missing.join(' and ')} on that kehikko${missing.includes('Build Pipeline') ? ' (and open Build Pipeline there once)' : ''}, then try again.`
 }
 
 /* ------------------------------------------------------------------ *
@@ -160,7 +160,7 @@ async function projectOf(cwd: string, needs: ReviewNeeds): Promise<{ ok: true; r
   const top = mainCheckout(cwd)
   if (!top) return { ok: false, why: `${cwd} is not in a git repository. A review reads the change in a git worktree, so it needs one.` }
   const held = await needs.resolve(top)
-  if (!held.ok) return { ok: false, why: `${held.why} Factory works on a project open in Kehikot.` }
+  if (!held.ok) return { ok: false, why: `${held.why} Build Pipeline works on a project open in Kehikot.` }
   return { ok: true, root: held.path }
 }
 
@@ -205,14 +205,14 @@ async function startReview(root: string, words: string, session: string, needs: 
   if (!said) {
     const selected = readSeen(root).kehikkos[here.kehikko]?.selection ?? []
     said = selected.find((ref) => locate(ref, remote).ok) ?? ''
-    if (!said) return stopped(['no pull or merge request is selected on this kehikko, and none was named. Factory reviews a pull or merge request: open one (a draft is fine), then select it on the canvas or type /review-factory <its URL>.'])
+    if (!said) return stopped(['no pull or merge request is selected on this kehikko, and none was named. Build Pipeline reviews a pull or merge request: open one (a draft is fine), then select it on the canvas or type /review-factory <its URL>.'])
   }
   const located = locate(said, remote)
   if (!located.ok) return stopped([located.why])
   const target = located.target
   const meta = readMeta(root, target, needs.cli)
   if (!meta.ok) return stopped([meta.why])
-  if (meta.meta.state && !['open', 'opened'].includes(meta.meta.state)) return stopped([`${target.repo}${target.forge === 'github' ? '#' : '!'}${target.number} is ${meta.meta.state}; Factory reviews open changes.`])
+  if (meta.meta.state && !['open', 'opened'].includes(meta.meta.state)) return stopped([`${target.repo}${target.forge === 'github' ? '#' : '!'}${target.number} is ${meta.meta.state}; Build Pipeline reviews open changes.`])
 
   const url = urlOf(target)
   const runs = listRuns(root).filter((run) => run.change.url === url)
@@ -401,7 +401,7 @@ function nextFor(root: string, run0: Run, session: string, needs: ReviewNeeds, f
   const paths = meta.ok && meta.value ? parseUnified(meta.value).map((one) => one.path) : []
   const byRules = doorByRules(settings.doorRules, paths, run.change.labels)
   const agents = agentsFor(root, run, settings, { doorRule: byRules.door ? `${byRules.said.join('; ')} — so this change is ${byRules.door}.` : null, project: root, only })
-  if (!agents.length) return Promise.resolve(stopped([`${run.id} is ${describeRun(run)}, which has nobody to start. This is a fault in Factory.`]))
+  if (!agents.length) return Promise.resolve(stopped([`${run.id} is ${describeRun(run)}, which has nobody to start. This is a fault in Build Pipeline.`]))
   const at = commit(root, run, { kind: 'step-at', at: needs.now() }, needs)
   if (at.ok) run = at.value
   return Promise.resolve(instructRun(run, agents, { origin: needs.origin(), project: root, session, fix, lead }))
@@ -411,7 +411,7 @@ function nextFor(root: string, run0: Run, session: string, needs: ReviewNeeds, f
 function ended(root: string, run: Run): string {
   if (run.stage === 'sent') {
     return stopped([
-      `${run.id} — ${run.change.ref} "${run.change.title}" — was ${run.sent?.by === 'factory' ? 'posted by Factory (two-way, no UI/UX, as the project\'s switch allows)' : 'sent'}: ${run.judged?.verdict ?? ''}.`,
+      `${run.id} — ${run.change.ref} "${run.change.title}" — was ${run.sent?.by === 'factory' ? 'posted by Build Pipeline (two-way, no UI/UX, as the project\'s switch allows)' : 'sent'}: ${run.judged?.verdict ?? ''}.`,
       'The whole record is on its card on the Reviews board.',
     ])
   }
@@ -660,7 +660,7 @@ function reviewed(root: string, run: Run, outputs: Map<string, { ok: true; value
 
 function pointsText(points: readonly CheckedPoint[], general: Run['general']): string {
   const out = ['# The points that passed the rules', '']
-  for (const one of general) out.push(`## ${one.id} (raised by Factory, required by rule)`, '', one.claim, '', one.suggestion, '')
+  for (const one of general) out.push(`## ${one.id} (raised by Build Pipeline, required by rule)`, '', one.claim, '', one.suggestion, '')
   for (const point of points) {
     out.push(
       `## ${point.id} — ${point.severity}, from ${point.angles.join(' and ')}`,
@@ -739,7 +739,7 @@ export async function draft(root: string, run0: Run, needs: ReviewNeeds): Promis
         !epic
           ? 'This change is in no epic, so the decision briefing is in the record only.'
           : document
-            ? `The epic has no document in ${document.name}, so the decision briefing is in the record only. Factory does not create one.`
+            ? `The epic has no document in ${document.name}, so the decision briefing is in the record only. Build Pipeline does not create one.`
             : 'No module here keeps a document per epic, so the decision briefing is in the record only.',
       )
     }
@@ -751,8 +751,8 @@ export async function draft(root: string, run0: Run, needs: ReviewNeeds): Promis
   let sent = false
   const settings = settingsOf(root)
   if (review && drafted.proposal && settings.postTwoWay) {
-    if (run.plan?.door.kind !== 'two-way') notes.push('Not posted by Factory: this change is one-way, so it waits for you.')
-    else if (run.plan.uiux.touches) notes.push('Not posted by Factory: it touches what people see, so it waits for you.')
+    if (run.plan?.door.kind !== 'two-way') notes.push('Not posted by Build Pipeline: this change is one-way, so it waits for you.')
+    else if (run.plan.uiux.touches) notes.push('Not posted by Build Pipeline: it touches what people see, so it waits for you.')
     else {
       const route = review.descriptor.send
       if (!route) notes.push(`Not posted: ${review.name} takes no sends from modules. Send it yourself from ${review.name}.`)
@@ -801,7 +801,7 @@ function draftText(run: Run, drafted: { comments: number; refused: { point: stri
     `Verdict: ${judged?.verdict ?? 'none'}. ${run.plan ? `${run.plan.door.kind} (${run.plan.door.reasons.join(' ')})` : ''}${run.plan?.uiux.touches ? ' Touches what people see.' : ''}`,
     '',
     `${drafted.comments} comment${drafted.comments === 1 ? '' : 's'} drafted in ${drafts}; the summary and verdict ${drafted.proposal ? 'proposed beside yours' : 'not proposed'}. ${ticks} checklist answer${ticks === 1 ? '' : 's'} set${where.checklists ? ` in ${where.checklists}` : ''}. Briefing: ${briefing}.`,
-    sent ? 'Posted by Factory, as the project\'s switch allows for a two-way change.' : `Nothing was posted: you read it${where.drafts ? ` in ${where.drafts}` : ''} and send it yourself.`,
+    sent ? 'Posted by Build Pipeline, as the project\'s switch allows for a two-way change.' : `Nothing was posted: you read it${where.drafts ? ` in ${where.drafts}` : ''} and send it yourself.`,
     '',
     ...(judged ? ['## Rulings', '', ...judged.rulings.map((one) => `- ${one.point}: ${one.ruling} — ${one.reason}`), ''] : []),
     ...(judged?.pathToSuccess.length ? ['## To get this approved', '', ...numbered(judged.pathToSuccess), ''] : []),
@@ -939,7 +939,7 @@ export async function actReview(root: string, body: ReviewAct, needs: ReviewNeed
       const had = settingsOf(root)
       const merged = { ...had, ...(body.settings ?? {}) }
       const parsed = reviewSettingsSchema.safeParse(merged)
-      if (!parsed.success) return { ok: false, error: `That is not a setting Factory can keep: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}`.trim() }
+      if (!parsed.success) return { ok: false, error: `That is not a setting Build Pipeline can keep: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}`.trim() }
       if (!parseRule(parsed.data.defaultRule).ok) return { ok: false, error: (parseRule(parsed.data.defaultRule) as { why: string }).why }
       for (const rule of parsed.data.doorRules) if (!doorRuleSchema.safeParse(rule).success) return { ok: false, error: 'A door rule is a path glob or a label, and one-way or two-way.' }
       const written = writeSettings(root, { ...readSettings(root), review: parsed.data })
@@ -1009,7 +1009,7 @@ export function pageSaw(root: string, said: { kehikko?: unknown; modules?: unkno
 const rowSchemaLoose = (row: unknown): row is TrackerRow =>
   !!row && typeof row === 'object' && typeof (row as TrackerRow).repo === 'string' && typeof (row as TrackerRow).number === 'number' && typeof (row as TrackerRow).tracker === 'string'
 
-/** The page hands over the host's rows for the changes under review; Factory sees who is ready for another look. */
+/** The page hands over the host's rows for the changes under review; Build Pipeline sees who is ready for another look. */
 export async function pageRows(root: string, rows: unknown[], needs: ReviewNeeds): Promise<Result<string>> {
   const good = (Array.isArray(rows) ? rows : []).filter(rowSchemaLoose).filter((row) => row.kind === 'change').slice(0, 500)
   writeJsonFile(root, 'review-rows', { version: 1, at: needs.now(), rows: good })

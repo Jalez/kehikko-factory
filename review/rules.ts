@@ -10,7 +10,7 @@ import { requiredPoints, type Judged, type Verdict } from './parse.ts'
  *  - Nothing required: the judge's last word stands — ready (`approve`) or for a person to weigh
  *    (`hand-over`). What "approve" leads to (a merge, a comment) is the caller's.
  *
- * Part of `review/`, which knows nothing of Factory's jobs, git or storage.
+ * Part of `review/`, which knows nothing of Build Pipeline's jobs, git or storage.
  */
 
 export type Next =

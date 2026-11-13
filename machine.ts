@@ -2,7 +2,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /**
- * The one machine-level place Factory keeps something, spelled once:
+ * The one machine-level place Build Pipeline keeps something, spelled once:
  *
  *  - `factory/author-rules.json` — re-review rules a person said are "for all projects". Written
  *    only from the person's press. `KEHIKOT_FACTORY_DIR` overrides the folder.

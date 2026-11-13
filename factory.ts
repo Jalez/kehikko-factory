@@ -92,9 +92,9 @@ export interface Said {
 async function projectOf(cwd: string, needs: Needs): Promise<{ ok: true; root: string } | { ok: false; why: string }> {
   if (!cwd) return { ok: false, why: 'The skill did not say which folder the conversation is in.' }
   const top = mainCheckout(cwd)
-  if (!top) return { ok: false, why: `${cwd} is not in a git repository. Factory builds in git worktrees, so a job needs one.` }
+  if (!top) return { ok: false, why: `${cwd} is not in a git repository. Build Pipeline builds in git worktrees, so a job needs one.` }
   const held = await needs.resolve(top)
-  if (!held.ok) return { ok: false, why: `${held.why} Factory works on a project open in Kehikot.` }
+  if (!held.ok) return { ok: false, why: `${held.why} Build Pipeline works on a project open in Kehikot.` }
   return { ok: true, root: held.path }
 }
 
@@ -186,13 +186,13 @@ async function issueSaid(root: string, said: string, what: string, session: stri
   if (!want) return stopped([`say what to do with the issue of ${job.id}: new, a ref (owner/repo#12), or none.`])
   if (want === 'none') {
     const written = writeJob(root, { ...job, ref: null, column: null, moveFailed: null, updatedAt: needs.now() })
-    return stopped([written.ok ? `${job.id} stays on the Factory board only, with no issue.` : written.error])
+    return stopped([written.ok ? `${job.id} stays on the Build Pipeline board only, with no issue.` : written.error])
   }
   const repo = issueRepo(root, needs)
   if (want === 'new') {
-    if (!repo) return stopped(['this project\'s origin is not on GitHub or GitLab, so there is nowhere to open an issue. The job stays on the Factory board.'])
+    if (!repo) return stopped(['this project\'s origin is not on GitHub or GitLab, so there is nowhere to open an issue. The job stays on the Build Pipeline board.'])
     const title = shellSafe(job.title, 120)
-    const body = shellSafe(`Opened by Kehikot Factory for the job ${job.id}. ${job.feature}`, 600)
+    const body = shellSafe(`Opened by Kehikot Build Pipeline for the job ${job.id}. ${job.feature}`, 600)
     const create = repo.kind === 'github'
       ? `gh issue create --repo ${repo.repo} --title "${title}" --body "${body}"`
       : `glab issue create --repo ${repo.repo} --title "${title}" --description "${body}" --yes`
@@ -277,7 +277,7 @@ async function start(root: string, words: string, session: string, needs: Needs,
   const split = splitAngles(rest)
   if (split.bad) return stopped([`--angles: ${split.bad}. Nothing was started.`])
   if (!split.feature) return stopped(['say what to build: /factory <feature>.'])
-  if (!mainBranch(root)) return stopped(['this repository has no main (or master) branch with a commit on it. Factory branches each job from main.'])
+  if (!mainBranch(root)) return stopped(['this repository has no main (or master) branch with a commit on it. Build Pipeline branches each job from main.'])
   const id = `${slug(split.feature)}-${needs.suffix()}`
   const now = needs.now()
   const job = newJob({ id, title: titleOf(split.feature), feature: split.feature.slice(0, 4000), anglesAsked: split.angles, place: place ?? (await placeOfSession(root, session, needs.ask)), session, now, ref: issue ? refOf(issue) : null })
@@ -288,7 +288,7 @@ async function start(root: string, words: string, session: string, needs: Needs,
   const answer = await nextFor(root, job, session, needs)
   if (job.ref || !issueRepo(root, needs)) return answer
   const [first, ...more] = answer.split('\n')
-  return [first, '', `NOTE for the person, at the end: this job has no issue. /factory issue ${id} new opens one, /factory issue ${id} <owner/repo#n> links one; otherwise it stays on the Factory board.`, ...more].join('\n')
+  return [first, '', `NOTE for the person, at the end: this job has no issue. /factory issue ${id} new opens one, /factory issue ${id} <owner/repo#n> links one; otherwise it stays on the Build Pipeline board.`, ...more].join('\n')
 }
 
 async function next(root: string, session: string, needs: Needs): Promise<string> {
@@ -320,7 +320,7 @@ async function next(root: string, session: string, needs: Needs): Promise<string
   return stopped([
     'nothing is next: no job was sent back to you, the queue in the board is empty'
       + (here?.epic ? `, and every part of the epic "${here.epic}" the board has seen already has a job.` : ', and this conversation is not placed on an epic in Kehikot.'),
-    'Add to the queue in the Factory board, or type /factory <feature>.',
+    'Add to the queue in the Build Pipeline board, or type /factory <feature>.',
   ])
 }
 
@@ -500,7 +500,7 @@ async function nextFor(root: string, job: Job, session: string, needs: Needs, fi
   if (job.round > 0) makeJobDir(root, job.id, job.round)
   const contested = job.stage === 'counter' || job.stage === 'judge' ? contestedOf(root, job) : []
   const step = stepFor(job, where, only, contested)
-  if (!step || !step.agents.length) return stopped([`${job.id} is at ${describeStage(job)}, which has nobody to start. This is a fault in Factory.`])
+  if (!step || !step.agents.length) return stopped([`${job.id} is at ${describeStage(job)}, which has nobody to start. This is a fault in Build Pipeline.`])
   return instruct(job, step, { origin: needs.origin(), project: root, session, fix })
 }
 
@@ -513,14 +513,14 @@ function ended(root: string, job: Job): string {
       job.merge?.left ? job.merge.left : 'Its worktree and branch were removed.',
     ])
   }
-  if (job.stage === 'failed') return stopped([`${job.id} — "${job.title}" — failed: ${job.failed}`, 'Its files are in the Factory board. /factory rework <job> <note> can send it back to the builder.'])
+  if (job.stage === 'failed') return stopped([`${job.id} — "${job.title}" — failed: ${job.failed}`, 'Its files are in the Build Pipeline board. /factory rework <job> <note> can send it back to the builder.'])
   if (job.stage === 'waiting') {
     return stopped([
       `${job.id} — "${job.title}" — is waiting for you. ${job.waiting?.said ?? ''}`,
       ...(job.required.length ? ['Still required:', ...job.required.map((one) => `- (${one.angle}) ${one.point}`)] : []),
       job.waiting?.why === 'sent-back'
         ? 'Type /factory next to build it.'
-        : `Approve and merge it in the Factory board or with /factory approve ${job.id}; or send it back with /factory rework ${job.id} <note>.`,
+        : `Approve and merge it in the Build Pipeline board or with /factory approve ${job.id}; or send it back with /factory rework ${job.id} <note>.`,
     ])
   }
   return stopped([`${job.id} is ${describeStage(job)}.`])
@@ -598,7 +598,7 @@ export function act(root: string, body: Act, needs: Needs): Result<string> {
   if (body.act === 'board') {
     if (body.board === null) {
       const written = writeSettings(root, { ...readSettings(root), board: null })
-      return written.ok ? { ok: true, value: 'Jobs stay on the Factory board; no issue is moved.' } : written
+      return written.ok ? { ok: true, value: 'Jobs stay on the Build Pipeline board; no issue is moved.' } : written
     }
     const parsed = boardSchema.safeParse(body.board)
     if (!parsed.success) return { ok: false, error: 'That is not a mapping of the stages onto a board.' }
@@ -661,7 +661,7 @@ export function act(root: string, body: Act, needs: Needs): Result<string> {
     const moved = commit(root, job, { kind: 'angles', angles: theirs }, needs)
     return moved.ok ? { ok: true, value: `Angles: ${theirs.map((one) => one.id).join(', ')}.` } : moved
   }
-  return { ok: false, error: 'The board asked for something Factory does not do.' }
+  return { ok: false, error: 'The board asked for something Build Pipeline does not do.' }
 }
 
 export { SAID, SETTLED }

@@ -16,7 +16,7 @@ const STAGE_WORDS: Record<BoardStage, string> = {
 }
 
 /**
- * Where each Factory stage sits on the project's own board. The boards and columns come from the
+ * Where each Build Pipeline stage sits on the project's own board. The boards and columns come from the
  * host's tracker reading (`tracker.columns`), else from the person's own gh/glab; a guess is filled
  * in and shown, and nothing moves until the person saves it.
  */
@@ -112,7 +112,7 @@ export function BoardMapView({
         </div>
       ) : null}
       {!board && !editing && !found ? (
-        <p className="text-[var(--muted-foreground)]">Not mapped: jobs stay on the Factory board, and no issue is moved.</p>
+        <p className="text-[var(--muted-foreground)]">Not mapped: jobs stay on the Build Pipeline board, and no issue is moved.</p>
       ) : null}
       {!editing ? (
         <Button size="sm" variant="outline" className="h-6 w-fit px-2 text-xs" disabled={looking} onClick={() => void look()}>

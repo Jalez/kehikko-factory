@@ -4,7 +4,7 @@ import * as review from '../review/prompts.ts'
 import { LAST_AUTOMATIC_ROUND, type Angle, type Job } from './shape.ts'
 
 /**
- * What each agent of the factory is told. The spec writer and the builder are Factory's own; the
+ * What each agent of the factory is told. The spec writer and the builder are Build Pipeline's own; the
  * planner of angles, the reviewers, the counter-arguers and the judge are the shared review
  * machinery (`review/prompts.ts`), given this job's files through `subjectOf`. One function per role, each a whole prompt a fresh subagent can act on with nothing else — where the files are,
  * what to read, what to write, and the few lines whose shape the module reads back (`parse.ts`).
@@ -45,7 +45,7 @@ export function screenOf(viewer: Viewer | null | undefined): string | undefined 
 }
 
 const ONLY_YOURS =
-  'Write only the file this prompt names. Never edit, move or delete any other file under .kehikot/, and never write job.json: the Factory '
+  'Write only the file this prompt names. Never edit, move or delete any other file under .kehikot/, and never write job.json: the Build Pipeline '
   + 'module keeps the job\'s state.'
 
 export function specPrompt(job: Job, where: Where): string {
@@ -93,7 +93,7 @@ export function subjectOf(job: Job, where: Where): review.Subject {
     },
     only: ONLY_YOURS,
     ...(screenOf(where.viewer) ? { screen: screenOf(where.viewer) } : {}),
-    after: 'You do not merge; the Factory does, or hands it to the person.',
+    after: 'You do not merge; the Build Pipeline does, or hands it to the person.',
   }
 }
 

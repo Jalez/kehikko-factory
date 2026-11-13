@@ -1,12 +1,12 @@
 ---
 name: factory
-description: Run Kehikot's software factory on this project. A spec, review angles chosen for the change, a build in its own git worktree, reviewers, counter-arguments and a judge. Only a person runs it, by typing /factory.
+description: Run Kehikot's build pipeline on this project. A spec, review angles chosen for the change, a build in its own git worktree, reviewers, counter-arguments and a judge. Only a person runs it, by typing /factory.
 argument-hint: "<feature> [--angles a,b] [--issue ref] | next | approve <job> | rework <job> <note> | issue <job> new | status"
 disable-model-invocation: true
 allowed-tools: Bash(curl:*), Bash(echo:*), Bash(gh project item-add:*), Bash(gh project item-edit:*), Bash(glab issue update:*)
 ---
 
-The person typed `/factory $ARGUMENTS`. Kehikot's Factory module at {{origin}} was asked, with this conversation's id and folder. Its answer, then curl's own report in brackets:
+The person typed `/factory $ARGUMENTS`. Kehikot's Build Pipeline module at {{origin}} was asked, with this conversation's id and folder. Its answer, then curl's own report in brackets:
 
 !`curl -s -m 60 --retry 4 --retry-connrefused --retry-delay 1 --retry-max-time 12 -w '\n[curl exit %{exitcode}: %{errormsg}; HTTP %{http_code}]\n' -X POST -G --data-urlencode "session=${CLAUDE_SESSION_ID}" --data-urlencode "say=$ARGUMENTS" --data-urlencode "cwd=$PWD" {{origin}}/api/skill/say || echo "[no answer from {{origin}}]"`
 
@@ -20,14 +20,14 @@ How to run it:
    - If it has a MOVE section, run those commands first, as it says: they move the job's issue on the project's own board.
    - If it has a NOTE for the person, keep it and tell them when the run stops.
    - Then run its REPORT command with the Bash tool, exactly as written (or the failure command, when a subagent could not do its job). The answer is the next STEP, or ends with "Stop.". Go on like this until an answer says "Stop.".
-   - Between steps, tell the person in one line what is happening ("Review, round 1: 3 reviewers started."). Nothing more: they can follow the job in the Factory board.
+   - Between steps, tell the person in one line what is happening ("Review, round 1: 3 reviewers started."). Nothing more: they can follow the job in the Build Pipeline board.
 2. If the answer does not begin with "Factory:", the module is restarting, is not running, is older than this skill, or moved to another port. Run this one command with the Bash tool, once, exactly as written: it asks the address the module registered. If its answer begins with "Factory:" and says HTTP 200, go on as in 1.
 
    ```sh
    curl -s -m 60 -w '\n[curl exit %{exitcode}: %{errormsg}; HTTP %{http_code}; %{url_effective}]\n' -X POST -G --data-urlencode "session=${CLAUDE_SESSION_ID}" --data-urlencode "say=$ARGUMENTS" --data-urlencode "cwd=$PWD" "$(sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\(http:\/\/127\.0\.0\.1:[0-9]*\)".*/\1/p' "$HOME/Library/Application Support/Kehikot/modules/kehikot.factory.json")/api/skill/say"
    ```
 
-3. If that did not give an answer either, tell the person ONE line and stop: "Kehikot: couldn't reach the Factory module at {{origin}} (curl exit N, HTTP CODE). Is Factory running in Kehikot? Try /factory again in a moment; if it keeps failing, update Factory from Kehikot's Updates menu. [skill {{version}}]" — with curl's numbers from the first report.
+3. If that did not give an answer either, tell the person ONE line and stop: "Kehikot: couldn't reach the Build Pipeline module at {{origin}} (curl exit N, HTTP CODE). Is Build Pipeline running in Kehikot? Try /factory again in a moment; if it keeps failing, update Build Pipeline from Kehikot's Updates menu. [skill {{version}}]" — with curl's numbers from the first report.
 
 Rules that hold throughout:
 

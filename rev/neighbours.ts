@@ -6,14 +6,14 @@ import type { Run, RunChecklist } from './shape.ts'
 
 /**
  * The other modules a review writes into, found only by the SERVICE they provide (protocol 2.83.0,
- * docs/services.md): Factory never names one. `findService` asks the host who provides a service here,
+ * docs/services.md): Build Pipeline never names one. `findService` asks the host who provides a service here,
  * and every tool name, route and name said to the person comes from that provider's descriptor. Calls
  * go to the provider's own doors, so every rule it keeps (the draft's anchor check, the checklist's "an
- * agent never changes the person's tick") holds for Factory too:
+ * agent never changes the person's tick") holds for Build Pipeline too:
  *
  *  - `review.drafts`: `tools.comment` with `meta`, `tools.propose`, `tools.drop`, and `send` — a run's
  *    review sent without the person, POSTed with this server's caller pass (`fetchService`), which the
- *    provider checks (`vouchCaller`). No descriptor `send`: nothing is posted by Factory.
+ *    provider checks (`vouchCaller`). No descriptor `send`: nothing is posted by Build Pipeline.
  *  - `checklist.holder`: `tools.list` to read what is held against the change — as JSON when the
  *    descriptor's `formats` has it (protocol 2.85.0, `checklistListsJson` / `checklistJson`), otherwise
  *    in its print (`[x]` passed, `[!]` failed, `[-]` n/a, `[ ]` unchecked; in the protocol's schema comment);
@@ -26,15 +26,17 @@ import type { Run, RunChecklist } from './shape.ts'
 
 export { CHECKLIST_HOLDER, DIAGRAM_WRITER, DOCUMENT_PROPOSALS, REVIEW_DRAFTS }
 
-/** The name Factory signs its checklist answers with. */
-export const AGENT_NAME = 'Factory review'
+/** The name Build Pipeline signs its checklist answers with. */
+export const AGENT_NAME = 'Build Pipeline review'
+/** What this module signed with before it was renamed: ticks it set then are still its own. */
+const FORMER_AGENT_NAMES = ['Factory review']
 
 export interface Said {
   ok: boolean
   text: string
 }
 
-/** A provider found, as Factory uses it: its id (as the host answered), its name, whether placed, its descriptor. */
+/** A provider found, as Build Pipeline uses it: its id (as the host answered), its name, whether placed, its descriptor. */
 export type Provider<S extends Service> = FoundService<S>
 
 export interface Neighbours {
@@ -121,7 +123,7 @@ export async function checklistsHeld(n: Neighbours, holder: Holder, project: str
     const all = await n.call(holder.module, tool, { project, format: CHECKLIST_JSON })
     if (!all.ok) return { lists: [], ref: null, trouble: all.text }
     const read = checklistJsonIn(checklistListsJson, all.text)
-    if (!read) return { lists: [], ref: null, trouble: `${holder.name} answered its lists in a shape Factory does not read.` }
+    if (!read) return { lists: [], ref: null, trouble: `${holder.name} answered its lists in a shape Build Pipeline does not read.` }
     const lists: RunChecklist[] = []
     let ref: string | null = null
     for (const one of read.lists) {
@@ -179,7 +181,7 @@ export async function createChecklist(n: Neighbours, holder: Holder, project: st
 const STATE_OF = { pass: 'passed', fail: 'failed', 'n/a': 'na' } as const
 
 /**
- * The reviewers' answers set in the checklist holder, as Factory's. Only an unchecked item, or one Factory
+ * The reviewers' answers set in the checklist holder, as Build Pipeline's. Only an unchecked item, or one Build Pipeline
  * set itself: never the person's (the holder refuses that anyway), and not another agent's either. Where
  * the panel disagrees, that is said in a note on the card and in the record instead.
  */
@@ -190,7 +192,7 @@ export async function setStates(n: Neighbours, holder: Holder, project: string, 
     const item = run.checklists.find((one) => one.id === answer.checklist)?.items.find((one) => one.id === answer.item)
     if (!item) continue
     const state = STATE_OF[answer.state]
-    if (item.state !== null && item.by !== AGENT_NAME) {
+    if (item.state !== null && item.by !== AGENT_NAME && !FORMER_AGENT_NAMES.includes(item.by ?? '')) {
       if (item.state !== state) notes.push(`${item.byPerson ? 'You' : item.by} marked "${item.text.slice(0, 80)}" ${item.state}; the ${answer.by} reviewer found it ${state}: ${answer.note}`)
       continue
     }
@@ -315,7 +317,7 @@ export async function proposeBriefing(n: Neighbours, document: Document, project
     epic,
     find: '\\end{document}',
     replace: `\\section*{Decision briefing: ${tex(title)}}\n\n${body}\n\n\\end{document}`,
-    why: `Factory's decision briefing for ${title}: a one-way change, for you to read before anything is posted.`,
+    why: `Build Pipeline's decision briefing for ${title}: a one-way change, for you to read before anything is posted.`,
     agent: AGENT_NAME,
   })
 }

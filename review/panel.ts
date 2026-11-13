@@ -62,7 +62,7 @@ export function rulePanel(input: {
     const said = byId.get(point.id)
     return said ? { point: point.id, ruling: said.ruling, reason: said.reason } : { point: point.id, ruling: 'optional', reason: 'The judge did not rule on it.' }
   })
-  for (const point of general) rulings.unshift({ point: point.id, ruling: 'required', reason: 'Raised by Factory itself, by rule.' })
+  for (const point of general) rulings.unshift({ point: point.id, ruling: 'required', reason: 'Raised by Build Pipeline itself, by rule.' })
 
   let optional = 0
   for (const one of rulings) {
