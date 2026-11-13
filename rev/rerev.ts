@@ -4,7 +4,7 @@ import { MAX_ROUNDS, type Run } from './shape.ts'
 
 /**
  * When to review a change again, per author. Teams and people say "ready for another look"
- * differently, so the person gives Factory a plain sentence per author, and Factory keeps it beside
+ * differently, so the person gives Build Pipeline a plain sentence per author, and Build Pipeline keeps it beside
  * the form it parsed it into:
  *
  *   "when they re-request review"                                  → re-request
@@ -61,7 +61,7 @@ export function parseRule(sentence: string): ParsedRule {
   const any: Signal[] = []
   for (const part of parts) {
     const signal = clause(part)
-    if (!signal) return { ok: false, why: `Factory could not read "${part.trim().slice(0, 80)}" as a signal. ${EXAMPLES}` }
+    if (!signal) return { ok: false, why: `Build Pipeline could not read "${part.trim().slice(0, 80)}" as a signal. ${EXAMPLES}` }
     any.push(signal)
   }
   if (any.some((one) => one.kind === 'manual') && any.length > 1) return { ok: false, why: '"Only when I ask" cannot be joined with another signal.' }
@@ -101,7 +101,7 @@ export function due(rule: Rule, row: TrackerRow, last: Pick<Run, 'stage' | 'sent
   if (row.state !== 'open') return { due: false, why: `It is ${row.state}.` }
   const finished = last.stage === 'sent' || (last.stage === 'waiting' && last.waiting?.why === 'drafted')
   if (!finished) return { due: false, why: 'The last review is not finished.' }
-  if (last.round >= MAX_ROUNDS) return { due: false, why: `It has been reviewed ${MAX_ROUNDS} times, the most Factory does by itself.` }
+  if (last.round >= MAX_ROUNDS) return { due: false, why: `It has been reviewed ${MAX_ROUNDS} times, the most Build Pipeline does by itself.` }
   const pinnedAt = Date.parse(last.pinned?.at ?? last.updatedAt)
   const pushed = row.lastPushAt ? Date.parse(row.lastPushAt) : NaN
   const newCommits = Number.isFinite(pushed) && pushed > pinnedAt

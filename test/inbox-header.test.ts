@@ -12,7 +12,7 @@ const at = (over: Partial<Job>): Job => ({ ...base, ...over })
 describe('the Inbox', () => {
   test('a job waiting for the person is one attention item at its place, labelled with the job', () => {
     const [item] = inboxItems([at({ stage: 'waiting', waiting: { why: 'judge-approved', said: 'The judge approves.' } })])
-    expect(item).toMatchObject({ id: 'job:shout-a1b2', state: 'attention', label: 'Factory job waiting for you: Make the greeting shout', place: { epic: 'greetings', parts: ['loud'], kehikko: 'k-main' } })
+    expect(item).toMatchObject({ id: 'job:shout-a1b2', state: 'attention', label: 'Build Pipeline job waiting for you: Make the greeting shout', place: { epic: 'greetings', parts: ['loud'], kehikko: 'k-main' } })
   })
 
   test('a failed job is one item too; running jobs work; cleared jobs are gone; the list is whole', () => {
@@ -54,6 +54,6 @@ describe('the header', () => {
       ['epic', 'Jobs'],
       ['reviews', 'Reviews'],
     ])
-    expect(SCOPE_IS_THE_PERSONS).toContain('Factory’s settings')
+    expect(SCOPE_IS_THE_PERSONS).toContain('Build Pipeline’s settings')
   })
 })

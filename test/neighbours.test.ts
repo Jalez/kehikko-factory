@@ -76,7 +76,7 @@ describe('checklist.holder, through its provider\'s door', () => {
     expect(calls[3]!.args).toMatchObject({ checklist: 'c9', ref: 'gh#7' })
   })
 
-  test('answers are set as Factory\'s, never over the person\'s or another agent\'s; a disagreement is a note', async () => {
+  test('answers are set as Build Pipeline\'s, never over the person\'s or another agent\'s; a disagreement is a note', async () => {
     const { n, calls } = standIn()
     const checklists = [parseList(LIST)!, { id: 'c3', name: 'x', items: [{ id: 'j1', text: 'Typed', state: 'passed' as const, byPerson: false, by: 'some agent' }] }]
     const answers: Run['answers'] = [

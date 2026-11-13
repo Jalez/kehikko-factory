@@ -142,7 +142,7 @@ export function readJob(root: string, id: string): Result<Job | null> {
   if (text.value === null) return { ok: true, value: null }
   try {
     const parsed = jobSchema.safeParse(JSON.parse(text.value))
-    if (!parsed.success) return { ok: false, error: `${join(dir, 'job.json')} is not a job this Factory can read.` }
+    if (!parsed.success) return { ok: false, error: `${join(dir, 'job.json')} is not a job this Build Pipeline can read.` }
     return { ok: true, value: parsed.data }
   } catch {
     return { ok: false, error: `${join(dir, 'job.json')} is not readable JSON.` }

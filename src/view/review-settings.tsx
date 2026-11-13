@@ -78,7 +78,7 @@ export function ReviewSettingsView({ settings, projectPath, api, onSaid }: { set
         }}
       >
         <span className="font-medium">When to review again, by default</span>
-        <span className="text-[var(--muted-foreground)]">The answer Factory recommends the first time it meets an author.</span>
+        <span className="text-[var(--muted-foreground)]">The answer Build Pipeline recommends the first time it meets an author.</span>
         <div className="flex gap-1">
           <Input value={rule} onChange={(event) => setRule(event.target.value)} className="h-6 text-xs" aria-label="the default re-review rule" />
           <Button type="submit" size="sm" variant="outline" className="h-6 px-2 text-xs">

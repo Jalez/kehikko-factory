@@ -25,11 +25,11 @@ import { PREFERRED_PORT } from './manifest.ts'
  * the prompts come from this module, one step at a time (job/steps.ts).
  *
  * `/review-factory` is kehikko-bound (protocol 2.12.0, `needs`): it drafts into the module that keeps
- * the person's draft reviews, so it makes sense only on a kehikko that has one as well as Factory. A
+ * the person's draft reviews, so it makes sense only on a kehikko that has one as well as Build Pipeline. A
  * host never installs it for every conversation; an agent module loads it into a conversation whose
  * kehikko meets its needs, and the skill checks again at run time, by the `review.drafts` service
  * placed on the kehikko (`kehikkoCheck` in review-factory.ts). `/factory` needs nothing beside
- * Factory and stays unbound.
+ * Build Pipeline and stays unbound.
  *
  * `SKILL_NEEDS_DRAFTS` is that need as a host checks it before loading the skill (protocol 2.85.0,
  * a `{ service }` need): some module on the kehikko provides `review.drafts`. No module is named.
@@ -44,7 +44,7 @@ const OFFERED = [
   {
     name: 'factory',
     summary:
-      'Type /factory <feature> to run a software factory: spec, chosen review angles, a build in its own worktree, counter-arguments and a judge.',
+      'Type /factory <feature> to run a build pipeline: spec, chosen review angles, a build in its own worktree, counter-arguments and a judge.',
   },
   {
     name: 'review-factory',

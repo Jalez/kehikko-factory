@@ -5,9 +5,9 @@ import { parseRule } from './rev/rerev.ts'
 import type { Settings } from './job/shape.ts'
 
 /**
- * Factory's settings as a host shows them (protocol 2.15.0, `declares.settings`): the same
+ * Build Pipeline's settings as a host shows them (protocol 2.15.0, `declares.settings`): the same
  * `.kehikot/factory/settings.json` the board's own controls write, in the same format. Every one is
- * the person's (`personOnly`): each lets Factory act without them — merge, post a review to the
+ * the person's (`personOnly`): each lets Build Pipeline act without them — merge, post a review to the
  * forge, start a background session, run the project's tests — or decides when it does. The
  * board's stage mapping is a structure, not a field: it stays on the board's own Settings.
  *
@@ -124,6 +124,6 @@ export function withValue(settings: Settings, key: string, value: unknown): { ok
       return { ok: true, settings: { ...settings, review: { ...review, doorRules: rules } } }
     }
     default:
-      return { ok: false, why: `Factory has no setting called "${key.slice(0, 64)}".` }
+      return { ok: false, why: `Build Pipeline has no setting called "${key.slice(0, 64)}".` }
   }
 }

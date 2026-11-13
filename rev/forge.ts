@@ -20,7 +20,7 @@ const GITHUB_REPO = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9._-]{1,100}$/
 const GITLAB_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)+$/
 
 export const NOT_A_CHANGE =
-  'Factory reviews a pull or merge request. Open one (a draft is fine) and run /review-factory with its URL, or select it on the canvas.'
+  'Build Pipeline reviews a pull or merge request. Open one (a draft is fine) and run /review-factory with its URL, or select it on the canvas.'
 
 export type Located = { ok: true; target: Target } | { ok: false; why: string }
 
