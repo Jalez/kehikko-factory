@@ -6,7 +6,7 @@ import * as manifest from '../manifest.ts'
 
 /* Modules do not name each other: text an agent or a person reads says what the other thing does.
    "Inbox" is a host term and may stay. */
-const OTHERS = ['Journeys', 'References', 'Checklist', 'Paper', 'Slides', 'Citations', 'Notes', 'Learning', 'Source', 'Diff', 'Review', 'Explorer', 'Terminal', 'History', 'Orchestrator', 'Browser', 'Editor', 'Factory', 'Kanban', 'Monitor', 'Queue', 'Worktrees', 'Flows', 'Screenplay', 'Codex', 'Antigravity', 'OpenCode', 'Vibe'].filter((n) => n !== 'Factory')
+const OTHERS = ['Journeys', 'References', 'Checklist', 'Paper', 'Slides', 'Citations', 'Notes', 'Learning', 'Source', 'Diff', 'Review', 'Explorer', 'Terminal', 'History', 'Orchestrator', 'Browser', 'Editor', 'Build Pipeline', 'Kanban', 'Monitor', 'Queue', 'Worktrees', 'Flows', 'Screenplay', 'Codex', 'Antigravity', 'OpenCode', 'Vibe'].filter((n) => n !== 'Build Pipeline')
 const ROOT = join(import.meta.dir, '..')
 /* Agent modules are named by id only: "Claude" as a word is the model. */
 const lower = [...OTHERS.map((n) => n.toLowerCase()), 'claude', 'notifications'].join('|')

@@ -4,7 +4,7 @@ import { KNOWN_ANGLES, MAX_ANGLES, type Angle, type Point } from './angles.ts'
  * The prompts of the review machinery — a planner who chooses the angles a change needs, a reviewer
  * per angle, a counter-arguer per review that asks for changes, and a judge who rules on every
  * point — written once, in this module's own words. Each takes a `Subject`: where the change and
- * its files are, said by the caller. Nothing here knows of Factory's jobs, git or storage, so
+ * its files are, said by the caller. Nothing here knows of Build Pipeline's jobs, git or storage, so
  * another module can reuse it. The lines `parse.ts` reads back are spelled out in each prompt.
  */
 

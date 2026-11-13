@@ -97,7 +97,7 @@ export const runSchema = z.object({
   stage: z.enum(REVIEW_STAGES),
   /** The conversation driving it now, or null. */
   session: z.string().nullable(),
-  /** Started by Factory itself, as a background session, for a re-review. */
+  /** Started by Build Pipeline itself, as a background session, for a re-review. */
   background: z.boolean().default(false),
   place: z.object({ epic: z.string().optional(), parts: z.array(z.string()).optional(), kehikko: z.string().optional() }).nullable(),
   change: changeSchema,
@@ -147,7 +147,7 @@ export const runSchema = z.object({
     })
     .nullable()
     .default(null),
-  /** Points raised by Factory itself, by rule (no before/after pictures on a UI change). */
+  /** Points raised by Build Pipeline itself, by rule (no before/after pictures on a UI change). */
   general: z.array(z.object({ id: z.string(), claim: z.string(), suggestion: z.string() })).max(5).default([]),
   /** Diagrams written for the judge's diagram requests: point → the diagram's id. */
   diagrams: z.array(z.object({ point: z.string(), flow: z.string() })).max(10).default([]),

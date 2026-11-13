@@ -56,7 +56,7 @@ const isId = (value: unknown): value is string | null => value === null || typeo
 export const ROWS_EVERY_MS = 2 * 60 * 1000
 
 export function App() {
-  const press = useRef<(press: Press) => PressAnswer>(() => 'Factory is not ready yet.')
+  const press = useRef<(press: Press) => PressAnswer>(() => 'Build Pipeline is not ready yet.')
   const host = useHost(ID, { onPress: (one) => press.current(one) }, { keepView: { except: ['settings'] } })
   return <Screen host={host} press={press} />
 }
@@ -212,7 +212,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
       }
       if (item === 'approve') return approve()
       if (item === 'send-back') return startSendBack()
-      return `Factory has nothing called "${item}" to press.`
+      return `Build Pipeline has nothing called "${item}" to press.`
     },
     [approve, startSendBack],
   )
@@ -252,7 +252,7 @@ export function Screen({ host, api = realApi, press }: { host: Host; api?: Api; 
   useEffect(() => {
     if (drawn) ready?.()
   }, [drawn, ready])
-  if (cover) return <Cover state={cover} name="Factory" onRetry={() => void read()} />
+  if (cover) return <Cover state={cover} name="Build Pipeline" onRetry={() => void read()} />
 
   return (
     <div data-kehikot-page className="flex h-screen min-w-0 flex-col text-sm">

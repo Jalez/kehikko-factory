@@ -36,7 +36,7 @@ const DIFF = ['diff', '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-p
 
 export function checkout(root: string, id: string, target: Target, base: string, remote: Remote | null, previousHead: string | null = null): CheckedOut {
   if (!remote || remote.kind !== target.forge || remote.repo !== target.repo) {
-    return { ok: false, why: `This change is in ${target.repo}, and this project's origin is ${remote ? remote.repo : 'not on GitHub or GitLab'}. Factory reviews changes to the project it is in.` }
+    return { ok: false, why: `This change is in ${target.repo}, and this project's origin is ${remote ? remote.repo : 'not on GitHub or GitLab'}. Build Pipeline reviews changes to the project it is in.` }
   }
   const head = target.forge === 'github' ? `refs/pull/${target.number}/head` : `refs/merge-requests/${target.number}/head`
   const fetched = git(root, ['fetch', '--no-tags', '--quiet', 'origin', `+${head}:${refBase(id)}/head`, `+refs/heads/${base}:${refBase(id)}/base`])

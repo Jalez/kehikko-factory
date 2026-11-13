@@ -21,14 +21,14 @@ describe('the manifest', () => {
   test('provides work.status: a descriptor that parses, naming the route doors.ts answers (protocol 2.83.0)', () => {
     const parsed = manifestSchema.parse(MANIFEST)
     expect(servicesOf(parsed)).toEqual([WORK_STATUS, MODULE_FOLDERS])
-    expect(serviceDescriptor(WORK_STATUS, parsed.services?.[WORK_STATUS])).toEqual({ name: 'Factory', jobs: JOBS_ROUTE })
+    expect(serviceDescriptor(WORK_STATUS, parsed.services?.[WORK_STATUS])).toEqual({ name: 'Build Pipeline', jobs: JOBS_ROUTE })
     expect(JOBS_ROUTE).toBe('/api/jobs')
   })
 
   test('provides module.folders for .kehikot/factory, its own folder (protocol 2.85.0)', () => {
-    const owned = foldersOwned([{ module: ID, name: 'Factory', placed: null, descriptor: MANIFEST.services?.[MODULE_FOLDERS] } as never])
+    const owned = foldersOwned([{ module: ID, name: 'Build Pipeline', placed: null, descriptor: MANIFEST.services?.[MODULE_FOLDERS] } as never])
     expect([...owned.keys()]).toEqual(['factory'])
-    expect(owned.get('factory')).toMatchObject({ module: ID, name: 'Factory', derived: false })
+    expect(owned.get('factory')).toMatchObject({ module: ID, name: 'Build Pipeline', derived: false })
   })
 
   test('can show a whole project: "All epics" in the host (protocol 2.9.0)', () => {

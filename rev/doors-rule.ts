@@ -2,7 +2,7 @@ import type { DoorRule } from './shape.ts'
 
 /**
  * One-way or two-way, by the project's own rules first ("anything under `migrations/` is one-way",
- * "label `two-way` means two-way"), kept in Factory's settings by the person. Applied before the
+ * "label `two-way` means two-way"), kept in Build Pipeline's settings by the person. Applied before the
  * planner's own judgement, handed to it, and never weakened by it: when a rule or the planner says
  * one-way, it is one-way. When in doubt, one-way.
  */

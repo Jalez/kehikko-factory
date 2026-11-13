@@ -4,7 +4,7 @@ import { isRunning } from '../../job/flow.ts'
 import type { Job } from '../../job/shape.ts'
 
 /**
- * What Factory reports to the host's Inbox (`activity.set`), as one whole list for the open project:
+ * What Build Pipeline reports to the host's Inbox (`activity.set`), as one whole list for the open project:
  *
  *  - a job waiting for the person: `attention`, labelled with the job, at its place;
  *  - a failed job: `attention` too, low priority, until it is cleared from the board;
@@ -42,7 +42,7 @@ export function inboxItems(jobs: readonly Job[], now = Date.now()): ActivityItem
       items.push({
         ...base,
         state: 'attention',
-        label: cut(job.waiting?.why === 'sent-back' ? `Sent back, to build: ${job.title}` : `Factory job waiting for you: ${job.title}`, LIMITS.ACTIVITY_LABEL),
+        label: cut(job.waiting?.why === 'sent-back' ? `Sent back, to build: ${job.title}` : `Build Pipeline job waiting for you: ${job.title}`, LIMITS.ACTIVITY_LABEL),
         detail: cut(job.waiting?.said ?? 'Waiting for your decision.', LIMITS.ACTIVITY_DETAIL),
         priority: 'normal',
       })
@@ -50,12 +50,12 @@ export function inboxItems(jobs: readonly Job[], now = Date.now()): ActivityItem
       items.push({
         ...base,
         state: 'attention',
-        label: cut(`Factory job failed: ${job.title}`, LIMITS.ACTIVITY_LABEL),
+        label: cut(`Build Pipeline job failed: ${job.title}`, LIMITS.ACTIVITY_LABEL),
         detail: cut(job.failed ?? 'It failed.', LIMITS.ACTIVITY_DETAIL),
         priority: 'low',
       })
     } else if (isRunning(job)) {
-      items.push({ ...base, state: 'working', label: cut(`Factory: ${job.title}`, LIMITS.ACTIVITY_LABEL) })
+      items.push({ ...base, state: 'working', label: cut(`Build Pipeline: ${job.title}`, LIMITS.ACTIVITY_LABEL) })
     } else if (job.stage === 'merged' && (sinceOf(job) ?? 0) > now - DONE_FOR_MS) {
       items.push({ ...base, state: 'done', label: cut(`Merged: ${job.title}`, LIMITS.ACTIVITY_LABEL), priority: 'low' })
     }

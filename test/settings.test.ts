@@ -11,7 +11,7 @@ import { readSettings, writeSettings } from '../store.ts'
 import { scratchRepo, testNeeds, write } from './repo.ts'
 
 /**
- * Factory's settings at its door for the host (protocol 2.15.0): every setting declared, every one
+ * Build Pipeline's settings at its door for the host (protocol 2.15.0): every setting declared, every one
  * the person's; a read and a change round trip through the same `.kehikot/factory/settings.json`
  * in the same format the board writes; an agent refused; a person's pass asked only of the
  * origins the host started this module with.
@@ -95,7 +95,7 @@ describe('read and change, round trip', () => {
     expect(readSettings(repo.root).judgeMerges).toBe(true)
   })
 
-  test('a value Factory cannot keep is refused, and nothing is written', async () => {
+  test('a value Build Pipeline cannot keep is refused, and nothing is written', async () => {
     const before = readFileSync(file(), 'utf8')
     expect((await set({ key: 'doorRules', value: ['anything goes'] }, TICKET)).why).toContain('not a door rule')
     expect((await set({ key: 'defaultRule', value: 'whenever' }, TICKET)).why).toContain('could not read')

@@ -217,7 +217,7 @@ export function advanceRun(run: Run, event: RunEvent, now: string): RunMoved {
     case 'drafted': {
       if (run.stage !== 'judging' && run.stage !== 'diagrams') return wrong(run, 'judged')
       const patch = { drafted: { ...event.drafted, in: event.drafted.in ?? null, briefingIn: event.drafted.briefingIn ?? null }, notes: [...run.notes, ...event.notes].slice(-60), checkout: run.checkout ? { ...run.checkout, present: false } : null }
-      if (event.sent) return done(to(run, now, 'sent', 'Posted by Factory, as the project\'s switch allows for a two-way change.', { ...patch, sent: { at: now, by: 'factory' }, session: null, waiting: null }))
+      if (event.sent) return done(to(run, now, 'sent', 'Posted by Build Pipeline, as the project\'s switch allows for a two-way change.', { ...patch, sent: { at: now, by: 'factory' }, session: null, waiting: null }))
       return done(waitFor(run, now, 'drafted', event.drafted.in
         ? `The draft is in ${event.drafted.in}: ${event.drafted.comments} comment${event.drafted.comments === 1 ? '' : 's'}, a proposed verdict and summary. Read it there and send it yourself.`
         : 'No module here keeps draft reviews, so the result is in this record only.', patch))

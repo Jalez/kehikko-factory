@@ -1,4 +1,4 @@
-# Factory — notes for agents
+# Build Pipeline — notes for agents
 
 ## Releasing
 
@@ -13,7 +13,7 @@ Nobody tags by hand: merging the version bump is the release.
    `module-release.yml` in Jalez/kehikko-desktop) sees that `package.json`'s
    version is newer than the latest `v*` tag and that the notes exist, creates
    the annotated tag `v<version>` on the merge commit, checks the notes,
-   typechecks and tests, then publishes the release "Factory <version>" in the
+   typechecks and tests, then publishes the release "Build Pipeline <version>" in the
    same run. A push that keeps the version releases nothing; a newer version
    without notes fails the run. If a check fails nothing is published: fix it
    in a PR with a newer version.

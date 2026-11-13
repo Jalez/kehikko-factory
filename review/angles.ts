@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * Review angles: the points of view a change is reviewed from, chosen per change by a planner (or
  * by the person). Part of the angle → reviewer → counter-arguer → judge machinery in `review/`,
- * which knows nothing of Factory's jobs, git or storage, so another module can use it.
+ * which knows nothing of Build Pipeline's jobs, git or storage, so another module can use it.
  */
 
 /** An angle's id: kebab-case, so it is also a file name (`review-<angle>.md`). */

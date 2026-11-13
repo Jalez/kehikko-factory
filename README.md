@@ -1,4 +1,4 @@
-# Factory — a software factory on your kehikko
+# Build Pipeline — agents that build and review on your kehikko
 
 Type one sentence. Get a reviewed, judged change on its own branch, and the last word on whether
 it lands. Or point it at a pull or merge request and get a review people actually read: right about
@@ -8,7 +8,7 @@ the code, right about the lines, short, and honest about how it was made.
 /factory Let people pick a dark theme --angles accessibility,ux-copy
 ```
 
-Factory turns that into a job and walks it down a line of agents, each with one job to do:
+Build Pipeline turns that into a job and walks it down a line of agents, each with one job to do:
 
 1. **A spec writer** reads your project and writes what "done" means: the goal, what it must do,
    what is left out, and what it assumed where you left it open.
@@ -34,7 +34,7 @@ handed back to you. Once a merge is confirmed, the job's worktree and branch are
 
 ## The board
 
-A Factory container on your kehikko shows the epic's jobs as cards moving across **Spec → Plan →
+A Build Pipeline container on your kehikko shows the epic's jobs as cards moving across **Spec → Plan →
 Build → Review → Judge → Waiting for you → Merged** (and Failed). Each card shows its round, its
 review angles, its issue, and a live line of what the conversation running it is doing right now.
 Press a card to read its files: the spec, the plan, every review, every counter-argument, every
@@ -50,17 +50,17 @@ A job waiting for you lands in Kehikot's Inbox at its place, and so does one tha
 
 ## Your own board, too
 
-Map Factory's stages onto your project's kanban — a GitHub Project's Status, or a GitLab board's
-lists — in the board's settings. Factory offers a guess from the column names; nothing moves until
+Map Build Pipeline's stages onto your project's kanban — a GitHub Project's Status, or a GitLab board's
+lists — in the board's settings. Build Pipeline offers a guess from the column names; nothing moves until
 you confirm it, and any stage can map to *no column*. From then on, as a job changes stage, the
 conversation running it moves the job's issue with your own `gh` or `glab`. A job without an issue
-can get one (`/factory issue <job> new`) or stay on the Factory board.
+can get one (`/factory issue <job> new`) or stay on the Build Pipeline board.
 
 ## Settings in Kehikot
 
-Factory's switches and rules for a project are also in Kehikot itself: the gear on Factory's
+Build Pipeline's switches and rules for a project are also in Kehikot itself: the gear on Build Pipeline's
 container, "Settings…" in its Frame menu, and Settings › Modules. They are the same
-`.kehikot/factory/settings.json` the board's own controls change, in the same format, and Factory
+`.kehikot/factory/settings.json` the board's own controls change, in the same format, and Build Pipeline
 is the one that writes it:
 
 | Setting | Type |
@@ -86,7 +86,7 @@ own board stays on the board's settings.
 | `/factory issue <job> new\|<ref>\|none` | open, link or drop the job's issue |
 | `/factory status` | the project's jobs |
 
-Agents read jobs through Factory's MCP door (`jobs`, `job`), and other modules read a job's live
+Agents read jobs through Build Pipeline's MCP door (`jobs`, `job`), and other modules read a job's live
 stage by its issue (`GET /api/jobs?ref=…&projectPath=…`). No agent can start, approve or merge a
 job: those are yours.
 
@@ -97,11 +97,11 @@ job: those are yours.
 ```
 
 Or select the change on the canvas and type just `/review-factory`. It is offered only in a
-conversation on a kehikko that has Factory and a module that keeps your draft reviews (it drafts
+conversation on a kehikko that has Build Pipeline and a module that keeps your draft reviews (it drafts
 into that one, found by the `review.drafts` service, never by name), and says which is missing if you type it elsewhere. It reviews pull and merge requests only — to review your own work first, open
 a draft.
 
-A panel works on it, and Factory checks every step:
+A panel works on it, and Build Pipeline checks every step:
 
 1. **Gather.** The change at one pinned head, checked out in a worktree of its own (your project is
    never switched), its description and commits, the epic it belongs to — its lede, its parts, and
@@ -117,7 +117,7 @@ A panel works on it, and Factory checks every step:
    them, gives at least one source, says what is wrong, why it matters and what to do in under 600
    characters, and has a severity. Every checklist item gets passed, failed or not applicable, with
    how they know.
-4. **Validate** (Factory, no agent). A point whose anchor is not in the diff, whose quote is not
+4. **Validate** (Build Pipeline, no agent). A point whose anchor is not in the diff, whose quote is not
    what those lines say, with no source, or too long is refused, with the reason, before anyone
    argues about it. Duplicates become one point listing every place.
 5. **Challenge.** One adversary concedes each point or makes the strongest honest case against it.
@@ -125,9 +125,9 @@ A panel works on it, and Factory checks every step:
    fit with the epic in one sentence, the verdict, a summary that fits on a screen, and — whenever
    it does not approve — **"To get this approved:"**, exactly the required points. When nothing
    blocks, it says so. Closing a change takes the whole panel agreeing.
-7. **Draft** (Factory, no agent). The kept points become draft comments in your draft review, with their
+7. **Draft** (Build Pipeline, no agent). The kept points become draft comments in your draft review, with their
    evidence, the challenge and the ruling; the summary and verdict are proposed beside yours, never
-   over them; the checklist answers are set in your checklists as Factory's — never over a tick you set.
+   over them; the checklist answers are set in your checklists as Build Pipeline's — never over a tick you set.
    A diagram the judge asks for is drawn by the module on the kehikko that draws diagrams
    (`diagram.writer`), in the change's epic. A one-way change also gets
    a **decision briefing** — the decisions, the alternatives, what cannot be undone, and what to try
@@ -135,14 +135,14 @@ A panel works on it, and Factory checks every step:
 
 Nothing is posted until you send it yourself. The one exception is yours to turn on: *Post
 two-way reviews by myself* sends a two-way change that touches nothing people see, through the draft keeper's `send`, which takes it
-only from Factory's server proving who it is. A one-way change
+only from Build Pipeline's server proving who it is. A one-way change
 and anything with UI/UX always wait for you, and a UI/UX change without before and after pictures
 gets a required point naming the screens.
 
 A re-review judges only what changed since the last one and whether the listed points were met —
 no moving goalposts. When to look again is per author, in your words ("when they re-request
 review", "2 hours after the last push, every point answered", "when they comment ready"); the first
-time Factory meets an author it asks you, with a recommended answer, in the Inbox and on the card.
+time Build Pipeline meets an author it asks you, with a recommended answer, in the Inbox and on the card.
 With *Re-review by myself* on, a re-review runs in a background Claude Code session, at most three
 rounds per change.
 
@@ -162,20 +162,20 @@ turn them on.
 | `/review-factory budget <review> points=N files=N tokens=N` | change the budget |
 | `/review-factory resume <review>` / `stop <review>` / `status` | carry one on, stop one, list them |
 
-Agents read reviews through Factory's door (`reviews`, `review`); other modules read a change's
+Agents read reviews through Build Pipeline's door (`reviews`, `review`); other modules read a change's
 reviews and their records at `GET /api/reviews?change=<url>&projectPath=…`. No agent can start,
 steer or send a review.
 
 ## Getting it
 
-Install Factory from Kehikot's module list, then install the `/factory` skill from the Skills
+Install Build Pipeline from Kehikot's module list, then install the `/factory` skill from the Skills
 window. `/review-factory` is not installed for every conversation: a conversation started from a
-kehikko with Factory and a module that keeps your draft reviews has it.
+kehikko with Build Pipeline and a module that keeps your draft reviews has it.
 
-Factory provides `work.status`: any module showing an issue can read the stage of Factory's jobs for
+Build Pipeline provides `work.status`: any module showing an issue can read the stage of Build Pipeline's jobs for
 it at `GET /api/jobs?ref=<ref>&projectPath=…`.
 
-Everything Factory keeps is in your project under `.kehikot/factory/` (reviews under
+Everything Build Pipeline keeps is in your project under `.kehikot/factory/` (reviews under
 `.kehikot/factory/reviews/<id>/`); the code it builds sits in `../<project>-factory/<job>/` until it
 is merged, and a review's checkout in `../<project>-factory/review-<id>/` until the review is done.
 Author rules you say are for all projects are kept in Kehikot's machine folder.

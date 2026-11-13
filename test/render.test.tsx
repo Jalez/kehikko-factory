@@ -120,7 +120,7 @@ describe('the boards follow the picked parts', () => {
     expect(screen.getByTestId('summary').textContent).toBe('Jobs on all epics')
     let said: unknown
     await react(async () => void (said = press.current({ item: 'view', value: 'all' })))
-    expect(String(said)).toContain('Factory’s settings')
+    expect(String(said)).toContain('Build Pipeline’s settings')
   })
 
   test('the Reviews board follows the same rules', async () => {

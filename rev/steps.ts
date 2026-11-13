@@ -13,7 +13,7 @@ import { runDir } from './store.ts'
  */
 
 export const ONLY_REVIEW =
-  'Write only the file this prompt names. Never edit, move or delete any other file under .kehikot/, never write run.json (the Factory '
+  'Write only the file this prompt names. Never edit, move or delete any other file under .kehikot/, never write run.json (the Build Pipeline '
   + 'module keeps the review\'s state), and change nothing in the checkout or in the project.'
 
 export function runTestsSentence(settings: ReviewSettings, checkout: string): string | null {

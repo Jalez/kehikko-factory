@@ -10,7 +10,7 @@ import { RUN_ID, runSchema, type Run } from './shape.ts'
  *
  *     reviews/<id>/run.json          a run's state (only rev/flow.ts decides it)
  *     reviews/<id>/packet.md …       its record: "How this review was made" (RECORD_FILES)
- *     review-seen.json               which kehikkos the page saw Factory on, with what else is there
+ *     review-seen.json               which kehikkos the page saw Build Pipeline on, with what else is there
  *     review-rows.json               the tracker rows of the changes under review, as the page read them
  *     review-questions.json          first-time questions about an author, waiting for the person
  *     review-authors.json            this project's re-review rules, per author
@@ -69,7 +69,7 @@ export function readRun(root: string, id: string): Result<Run | null> {
   if (text.value === null) return { ok: true, value: null }
   try {
     const parsed = runSchema.safeParse(JSON.parse(text.value))
-    return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: `${join(dir, 'run.json')} is not a review this Factory can read.` }
+    return parsed.success ? { ok: true, value: parsed.data } : { ok: false, error: `${join(dir, 'run.json')} is not a review this Build Pipeline can read.` }
   } catch {
     return { ok: false, error: `${join(dir, 'run.json')} is not readable JSON.` }
   }

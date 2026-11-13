@@ -5,7 +5,7 @@ import { COLUMNS, columnOf } from './columns.ts'
 import { decisionItems } from './header.ts'
 
 /**
- * What Factory puts in its container's footer (`kehikot.footer`, protocol 2.38.0): what the board
+ * What Build Pipeline puts in its container's footer (`kehikot.footer`, protocol 2.38.0): what the board
  * holds now, and the job selected on it, so a container folded to its header and footer still says
  * them. It is the line the page drew along its top (which board, which epic, how many wait for
  * you) and the notes under it (what an act said, what went wrong), in one row the host draws.

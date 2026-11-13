@@ -3,7 +3,7 @@ import type { Run } from '../../rev/shape.ts'
 /**
  * The Reviews board: one card per change under review, and the columns are the steps (contract
  * C5). Diagrams is drawn only while a run is in it: a judge asks for one rarely, and only when a diagram drawer
- * is on the kehikko. It touches nothing else: not the build board, not Factory's stage mapping,
+ * is on the kehikko. It touches nothing else: not the build board, not Build Pipeline's stage mapping,
  * and never the change's column on the project's own board.
  */
 export const REVIEW_COLUMNS = [

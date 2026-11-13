@@ -140,9 +140,9 @@ async function runToRest(needs: ReviewNeeds, root: string, opts: Parameters<type
 }
 
 describe('/review-factory refuses, in plain words', () => {
-  test('a conversation on no kehikko, a kehikko without Factory, no change, and an issue', async () => {
+  test('a conversation on no kehikko, a kehikko without Build Pipeline, no change, and an issue', async () => {
     const { root, needs } = setUp({ modules: [REVIEW] })
-    expect(await say(needs, root)).toContain('/review-factory needs Review and Factory on this kehikko; Factory is missing.')
+    expect(await say(needs, root)).toContain('/review-factory needs Review and Build Pipeline on this kehikko; Build Pipeline is missing.')
     pageSaw(root, { kehikko: 'k1', modules: ['kehikot.factory', REVIEW], selection: [] })
     expect(await say(needs, root)).toContain('no pull or merge request is selected')
     expect(await say(needs, root, 'https://github.com/me/app/issues/3')).toContain('an issue, not a change')
@@ -152,37 +152,37 @@ describe('/review-factory refuses, in plain words', () => {
   })
 })
 
-describe('/review-factory needs the drafts provider and Factory on its kehikko', () => {
+describe('/review-factory needs the drafts provider and Build Pipeline on its kehikko', () => {
   test('a kehikko without Review: refused, naming Review, and no review is started', async () => {
     const { root, needs } = setUp({ modules: ['kehikot.factory', CHECKLIST] })
     const said = await say(needs, root)
-    expect(said).toContain('/review-factory needs Review and Factory on this kehikko; Review is missing.')
+    expect(said).toContain('/review-factory needs Review and Build Pipeline on this kehikko; Review is missing.')
     expect(said).toContain('Put Review on that kehikko, then try again.')
     expect(listRuns(root)).toEqual([])
   })
 
   test('a kehikko with neither: both named', async () => {
     const { root, needs } = setUp({ modules: [CHECKLIST] })
-    expect(await say(needs, root)).toContain('/review-factory needs Review and Factory on this kehikko; Review and Factory are missing.')
+    expect(await say(needs, root)).toContain('/review-factory needs Review and Build Pipeline on this kehikko; Review and Build Pipeline are missing.')
   })
 
   test('nothing provides review.drafts: refused in general words', async () => {
     const { root, needs } = setUp({ n: standIn({}, { providers: { 'review.drafts': null } }).n })
     const said = await say(needs, root)
-    expect(said).toContain(`/review-factory needs ${NO_DRAFTS} and Factory on this kehikko; ${NO_DRAFTS} is missing.`)
+    expect(said).toContain(`/review-factory needs ${NO_DRAFTS} and Build Pipeline on this kehikko; ${NO_DRAFTS} is missing.`)
     expect(listRuns(root)).toEqual([])
   })
 
   test('the provider is called by its own name, whatever it is', async () => {
     const { root, needs } = setUp({ modules: ['kehikot.factory'], n: standIn({}, { providers: { 'review.drafts': { ...DRAFTS, module: 'some.drafts', name: 'Drafts' } }, on: ['kehikot.factory'] }).n })
-    expect(await say(needs, root)).toContain('/review-factory needs Drafts and Factory on this kehikko; Drafts is missing.')
+    expect(await say(needs, root)).toContain('/review-factory needs Drafts and Build Pipeline on this kehikko; Drafts is missing.')
   })
 
   test('the words, on their own', () => {
     expect(missingForReview(['kehikot.factory'], { name: 'Review', placed: true })).toEqual([])
     expect(missingForReview(['kehikot.factory'], { name: 'Review', placed: false })).toEqual(['Review'])
-    expect(missingForReview([], null)).toEqual([NO_DRAFTS, 'Factory'])
-    expect(missingSaid(['Review'], 'Review').split('\n')[0]).toBe('/review-factory needs Review and Factory on this kehikko; Review is missing.')
+    expect(missingForReview([], null)).toEqual([NO_DRAFTS, 'Build Pipeline'])
+    expect(missingSaid(['Review'], 'Review').split('\n')[0]).toBe('/review-factory needs Review and Build Pipeline on this kehikko; Review is missing.')
   })
 })
 
@@ -285,7 +285,7 @@ describe('the person\'s choices', () => {
     expect(run.plan!.angles.map((one) => one.items)).toEqual([['c9/i1'], ['c9/i2']])
   })
 
-  test('the checklist answers are set as Factory\'s, never over the person\'s tick', async () => {
+  test('the checklist answers are set as Build Pipeline\'s, never over the person\'s tick', async () => {
     const stand = standIn()
     const { root, needs } = setUp({ n: stand.n })
     await say(needs, root)
@@ -325,7 +325,7 @@ describe('posting without the person', () => {
     return { run: runOf(root), sent }
   }
 
-  test('two-way, no UI/UX, the switch on: Factory sends it to the route the drafts provider names', async () => {
+  test('two-way, no UI/UX, the switch on: Build Pipeline sends it to the route the drafts provider names', async () => {
     const { run, sent } = await finished({ postTwoWay: true })
     expect(run.stage).toBe('sent')
     expect(run.sent?.by).toBe('factory')
@@ -540,7 +540,7 @@ describe('the services a review writes into, each by what its descriptor says', 
     ;({ root, needs } = await toJudging(fileless, plan))
     agentsDo(root, runOf(root), { plan })
     await report(needs, root, runOf(root))
-    expect(runOf(root).notes).toContain('The epic has no document in Paper, so the decision briefing is in the record only. Factory does not create one.')
+    expect(runOf(root).notes).toContain('The epic has no document in Paper, so the decision briefing is in the record only. Build Pipeline does not create one.')
     expect(fileless.calls.some((one) => one.id === DOCUMENT.module)).toBe(false)
   })
 

@@ -4,7 +4,7 @@ import type { Run } from '../../rev/shape.ts'
 import { RUN_RUNNING } from '../../rev/shape.ts'
 
 /**
- * What the Reviews board adds to Factory's Inbox list (the page sends ONE whole list: jobs and
+ * What the Reviews board adds to Build Pipeline's Inbox list (the page sends ONE whole list: jobs and
  * reviews together, `inbox.ts` and this):
  *
  *  - a review waiting for you (the draft is ready, its checklist proposal waits, it stopped or

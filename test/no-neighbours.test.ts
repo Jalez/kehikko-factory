@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /*
- * Modules never name each other: Factory finds what it writes into by SERVICE (rev/neighbours.ts) and
- * says each provider's own name. This scans every tracked file of Factory's own code and words — not
+ * Modules never name each other: Build Pipeline finds what it writes into by SERVICE (rev/neighbours.ts) and
+ * says each provider's own name. This scans every tracked file of Build Pipeline's own code and words — not
  * tests, notes, docs, the changelog, the skills' text (their own pass) or the lockfile — for another
  * module's id, the tools it used to call by name, another module's data folder, and the retired key.
  */
@@ -32,7 +32,7 @@ function files(): string[] {
     .filter((path) => path && !SKIPPED.some((skip) => skip.test(path)) && /\.(?:ts|tsx|json|md|html|css)$/.test(path))
 }
 
-describe('Factory names no other module', () => {
+describe('Build Pipeline names no other module', () => {
   test('no id, tool, data folder or key of another module in its code and words', () => {
     const hits: string[] = []
     for (const file of files()) {

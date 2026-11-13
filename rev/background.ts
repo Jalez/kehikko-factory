@@ -11,7 +11,7 @@ import { personEnv } from 'kehikot-module-protocol/serve'
  * The rules of kehikko-orchestrator's `start.ts` hold here: the program is fixed (`claude`), the
  * arguments are fixed except the name and the prompt, each one argv element (never a shell), the
  * prompt is made here from a run id this module minted, and "started" means the kernel said so.
- * The session outlives this module; Factory never stops it.
+ * The session outlives this module; Build Pipeline never stops it.
  */
 
 const PROGRAM = 'claude'

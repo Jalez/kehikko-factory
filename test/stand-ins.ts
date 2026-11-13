@@ -4,7 +4,7 @@ import type { Neighbours, Provider } from '../rev/neighbours.ts'
 
 /*
  * The providers of the services /review-factory uses, standing in. Tests may name real modules and
- * their tools: these are what today's providers declare, and Factory reads them only from here.
+ * their tools: these are what today's providers declare, and Build Pipeline reads them only from here.
  */
 export const DRAFTS: Provider<typeof REVIEW_DRAFTS> = {
   module: 'kehikot.review',
@@ -38,7 +38,7 @@ export const LIST = [
   '"What a change owes" (c1) held against gh#7 — 2/3 ticked',
   'passed 1 · failed 1 · n/a 0 · unchecked 1',
   '1. [x] i1 — Has a test  (Jaakko: greet.test.js)',
-  '2. [!] i2 — Docs updated  (Factory review, over MCP: README untouched)',
+  '2. [!] i2 — Docs updated  (Build Pipeline review, over MCP: README untouched)',
   '3. [ ] i3 — No new dependency  [evidence: the tracker\'s files]',
   '',
   'Also held against: gh#9 (0 ticked)',

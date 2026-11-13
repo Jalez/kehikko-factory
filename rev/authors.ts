@@ -8,11 +8,11 @@ import { readJsonFile, writeJsonFile } from './store.ts'
 
 /**
  * Per-author re-review rules: this project's (`.kehikot/factory/review-authors.json`), over the
- * ones the person said are for all projects (`author-rules.json` in Factory's machine folder). Each
+ * ones the person said are for all projects (`author-rules.json` in Build Pipeline's machine folder). Each
  * keeps the sentence the person gave and its parsed form. Written only from the person's press or
  * typed command; an agent's door cannot reach them.
  *
- * The first time a change from an author with no rule needs a re-review, Factory asks:
+ * The first time a change from an author with no rule needs a re-review, Build Pipeline asks:
  * `review-questions.json` holds the question, the page puts it in the Inbox and on the card, with
  * the project's default rule as the one-press answer.
  */

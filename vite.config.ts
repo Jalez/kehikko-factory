@@ -46,7 +46,7 @@ export default defineConfig({
       answer,
       stream,
       build: BUILD,
-      page: { title: 'Factory', ticket: TICKET },
+      page: { title: 'Build Pipeline', ticket: TICKET },
       ours,
     }),
     react(),

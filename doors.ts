@@ -65,7 +65,7 @@ const bad = (why: string, status = 400): Reply => ({ status, body: { ok: false, 
 const text = (said: string, status = 200): Reply => ({ status, body: null, raw: { bytes: said, type: 'text/plain; charset=utf-8' } })
 
 const STRANGER = 'That was not asked by this app’s own page.'
-const NOT_A_PROJECT = 'That folder is not open as a project in Kehikot, so Factory reads and writes nothing there.'
+const NOT_A_PROJECT = 'That folder is not open as a project in Kehikot, so Build Pipeline reads and writes nothing there.'
 
 /** Which project a folder is, as the host has it. `setHostResolve` is for tests. */
 let hostResolve: Resolve = resolveProject
@@ -136,8 +136,8 @@ const str = (value: unknown, max = 4096): string => (typeof value === 'string' ?
  * ------------------------------------------------------------------ */
 
 export const READ_ONLY_DOOR =
-  'Factory’s agent door only reads. It cannot start, approve, merge or send back a job, nor start, steer or send a review: the person '
-  + 'types /factory or /review-factory in Claude Code, or presses in the Factory board.'
+  'Build Pipeline’s agent door only reads. It cannot start, approve, merge or send back a job, nor start, steer or send a review: the person '
+  + 'types /factory or /review-factory in Claude Code, or presses in the Build Pipeline board.'
 
 function tools() {
   return [
@@ -286,7 +286,7 @@ async function mcp(rpc: Rpc): Promise<Reply> {
       protocolVersion: '2025-06-18',
       capabilities: { tools: {} },
       serverInfo: { name: ID, version: VERSION },
-      instructions: `The software factory's jobs in a project, read-only. ${READ_ONLY_DOOR}`,
+      instructions: `The build pipeline's jobs in a project, read-only. ${READ_ONLY_DOOR}`,
     })
   }
   if (typeof rpc.method === 'string' && rpc.method.startsWith('notifications/')) return { status: 202, body: null }

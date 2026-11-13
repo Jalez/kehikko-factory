@@ -3,9 +3,9 @@ import { z } from 'zod'
 import type { Job, Stage } from './shape.ts'
 
 /**
- * The project's own kanban board, and where each Factory stage sits on it.
+ * The project's own kanban board, and where each Build Pipeline stage sits on it.
  *
- * Factory has its stages (spec, plan, build, review, judge, waiting for you, merged, failed); a
+ * Build Pipeline has its stages (spec, plan, build, review, judge, waiting for you, merged, failed); a
  * project has its board — a GitHub Project (v2) with a Status field, or a GitLab issue board whose
  * lists are labels. The person maps one onto the other, per project, in the board's settings
  * (`.kehikot/factory/settings.json`), choosing from the boards and columns the host read
@@ -139,7 +139,7 @@ export function moveFor(job: Job, board: BoardMap | null | undefined, github: Gi
   if (board.kind === 'github') {
     if (!github || typeof github === 'string') return blocked(github || `The ids of "${board.board}" could not be looked up with gh.`)
     const option = github.options[column]
-    if (!option) return blocked(`"${board.board}" has no column called "${column}" any more. Map the stages again in Factory's settings.`)
+    if (!option) return blocked(`"${board.board}" has no column called "${column}" any more. Map the stages again in Build Pipeline's settings.`)
     return {
       kind: 'move',
       move: {

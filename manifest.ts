@@ -7,7 +7,7 @@ import intro from './intro.json'
 
 /** "How to use" (protocol 2.52.0). Each string one line of plain text. */
 export const HELP = {
-  summary: 'A software factory on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into your draft review.',
+  summary: 'A build pipeline on your kehikko: a line of agents builds each change and a judge rules on it, and /review-factory drafts reviews of pull and merge requests into your draft review.',
   sections: [
     {
       title: 'What it shows',
@@ -25,7 +25,7 @@ export const HELP = {
         'A job waiting for you, or one that failed, lands in the Inbox. Approve and merge it, or Send back with a note, from the header or with /factory approve and /factory rework.',
         'Review a pull or merge request with /review-factory, on a kehikko that also has a module that keeps your draft reviews. The comments are drafted there; you send them from there.',
         'Settings in the header, or the gear on the container, holds the switches: let the judge merge, post two-way reviews by myself, re-review by myself, reviewers may run tests, and the door rules.',
-        'Map Factory’s stages onto your own GitHub or GitLab board in the board’s settings, and jobs move your issues as they change stage.',
+        'Map Build Pipeline’s stages onto your own GitHub or GitLab board in the board’s settings, and jobs move your issues as they change stage.',
       ],
     },
     {
@@ -63,7 +63,7 @@ export const PREFERRED_PORT = 8040
 /**
  * What this app says about itself.
  *
- * ## A software factory on a kehikko
+ * ## A build pipeline on a kehikko
  *
  * A person types `/factory <feature>` in a Claude Code conversation. The skill it offers
  * (`declares.skills`, served by this module) asks this module for one step at a time: a spec
@@ -84,7 +84,7 @@ export const PREFERRED_PORT = 8040
  *
  * ## The project's own board
  *
- * The person maps Factory's stages onto their board's columns (a GitHub Project's Status, a GitLab
+ * The person maps Build Pipeline's stages onto their board's columns (a GitHub Project's Status, a GitLab
  * board's lists), choosing from what the host read (`tracker.columns`, hence `trackers:read`). As a
  * job's stage changes, the conversation running `/factory` moves its issue with the person's CLI.
  *
@@ -104,8 +104,8 @@ export const PREFERRED_PORT = 8040
  *
  * ## `services`: `work.status` (protocol 2.83.0)
  *
- * Factory provides the stage of its jobs by issue: `GET /api/jobs?ref=&projectPath=` answers `{ jobs }`
- * (doors.ts), so a module showing an issue can say "Factory: <stage>" without naming Factory.
+ * Build Pipeline provides the stage of its jobs by issue: `GET /api/jobs?ref=&projectPath=` answers `{ jobs }`
+ * (doors.ts), so a module showing an issue can say "Build Pipeline: <stage>" without naming Build Pipeline.
  *
  * ## `reacts: ['parts']`
  *
@@ -131,16 +131,16 @@ export const DECLARED: Manifest = manifestSchema.parse({
   kind: MANIFEST_KIND,
   protocol: PROTOCOL,
   id: ID,
-  name: 'Factory',
+  name: 'Build Pipeline',
   /* The icon a host draws beside the name: a key of the protocol's module icons, never a path
      or URL; the same key Kehikot's official list gives it. */
   icon: 'lucide:factory',
   version: VERSION,
   dataVersion: 1,
-  summary: 'A software factory on your kehikko: builds judged by a panel of agents, and /review-factory for accurate, transparent reviews of pull and merge requests.',
+  summary: 'A build pipeline on your kehikko: builds judged by a panel of agents, and /review-factory for accurate, transparent reviews of pull and merge requests.',
   tags: ['agents', 'review', 'code'],
   guidance:
-    'Factory runs features through a pipeline of agents (spec, plan, build, review, counter-argument, judge) when the person '
+    'Build Pipeline runs features through a pipeline of agents (spec, plan, build, review, counter-argument, judge) when the person '
     + 'types /factory in a Claude Code conversation. Its MCP door only reads: `jobs` lists a project\'s jobs and their stages, '
     + '`job` reads one job\'s files (spec, plan, reviews, counter-arguments, judgements, decision). You cannot start, approve, '
     + 'merge or send back a job: those are the person\'s, typed or pressed. Never merge a factory/<job> branch yourself. '
@@ -153,13 +153,13 @@ export const DECLARED: Manifest = manifestSchema.parse({
   entry: '/app',
   /* What its content belongs to (protocol 2.29.0): one mode per scope, the default first. */
   modes: [
-    { id: 'board', label: 'Factory', scope: 'epic', scopeSays: 'the open epic’s jobs and reviews' },
+    { id: 'board', label: 'Build Pipeline', scope: 'epic', scopeSays: 'the open epic’s jobs and reviews' },
     { id: 'all', label: 'All epics', scope: 'project', scopeSays: 'every epic’s jobs and reviews in this project, each card labelled with its epic' },
   ],
   mcp: {
     url: '/mcp',
     transport: 'http',
-    about: 'The jobs of the software factory in a project, and each job\'s files; the /review-factory reviews and their records. Read-only.',
+    about: 'The jobs of the build pipeline in a project, and each job\'s files; the /review-factory reviews and their records. Read-only.',
   },
   extensions: { emits: [], consumes: [] },
   reacts: ['parts'],
@@ -183,10 +183,10 @@ export const DECLARED: Manifest = manifestSchema.parse({
   health: '/healthz',
   /* The stage of its jobs, by issue, for any module that shows an issue (protocol 2.83.0). The route is doors.ts'. */
   services: {
-    [WORK_STATUS]: { name: 'Factory', jobs: JOBS_ROUTE },
+    [WORK_STATUS]: { name: 'Build Pipeline', jobs: JOBS_ROUTE },
     /* The one folder it keeps under `.kehikot/` and is the only writer of (protocol 2.85.0). */
     [MODULE_FOLDERS]: {
-      name: 'Factory',
+      name: 'Build Pipeline',
       folders: [{ folder: 'factory', says: 'Its jobs and reviews, each with its steps, reports and record, the queue, and its settings.', derived: false }],
     },
   },
