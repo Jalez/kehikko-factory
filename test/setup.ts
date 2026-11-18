@@ -1,3 +1,6 @@
+/* The shared test preload (protocol 2.104.0): the running app's environment never reaches a test. */
+import 'kehikot-module-protocol/testing/setup'
+
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -10,8 +13,6 @@ import { join } from 'node:path'
  * rule is read or written in the real machine folder, and the
  * git the tests run commits as a stand-in person with no global config.
  */
-/* A session's own KEHIKOT_HOST (the running app, :4170) would win; protocol 2.104.0's `testing/setup` does this for every KEHIKOT_* once the pin carries it. */
-delete process.env.KEHIKOT_HOST
 delete process.env.KEHIKOT_ORIGIN
 process.env.KEHIKOT_ORIGINS = 'http://127.0.0.1:9'
 process.env.KEHIKOT_MODULES_DIR = mkdtempSync(join(tmpdir(), 'factory-registry-'))
